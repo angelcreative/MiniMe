@@ -11,10 +11,10 @@ export const Button: React.FC<ButtonProps> = ({ children, isLoading, className =
       className={`
         relative px-8 py-4 rounded-full font-bold text-base tracking-wide
         transition-all duration-300 transform hover:-translate-y-0.5
-        shadow-[0_4px_14px_0_rgba(167,139,250,0.39)]
+        shadow-[0_4px_14px_0_rgba(99,102,241,0.39)]
         ${disabled 
           ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' 
-          : 'bg-gradient-to-r from-violet-500 to-fuchsia-500 hover:from-violet-600 hover:to-fuchsia-600 text-white'}
+          : 'bg-indigo-500 hover:bg-indigo-600 text-white'}
         ${className}
       `}
       {...props}

@@ -41,7 +41,85 @@ export const generateChildFace = async (
             },
           },
           {
-            text: `Analyze these two images of a father and a mother. Generate a high-quality, photorealistic portrait of a 5-year-old ${gender} that shares physical traits from both parents. The image should be a professional studio portrait with soft lighting, similar to the style of the input images. Focus on facial features, skin tone, and hair texture.`
+            text: `
+GENETIC INHERITANCE MODE ACTIVE  
+Do NOT blend the two faces directly.  
+Analyze each parent face independently and generate a child that follows REAL GENETIC HEREDITY RULES.
+
+---------------------------------------
+GENETIC INHERITANCE RULES TO APPLY
+---------------------------------------
+
+1. EYE COLOR
+- Dark dominant over green, green dominant over blue.
+- If parents have different colors, compute realistic probabilities.
+- If both dark: child usually dark.
+- If one light: intermediate (hazel/green) possible.
+- Preserve parental eye shape tendencies (spacing, eyelid).
+
+2. SKIN TONE
+- Child skin tone must be the midpoint between both parents (+/- 10% natural variation).
+- DO NOT average pixel color; generate realistic inherited tone.
+
+3. FACE SHAPE
+- Follow shared or intermediate morphology.
+- Prioritize biologically plausible shapes (oval, round, square, long).
+- If parents differ strongly, produce soft-blended hereditary shape.
+
+4. NOSE STRUCTURE
+- Nose inheritance prioritizes dominant shared morphology.
+- If one has narrow and the other wide, produce a realistic midpoint.
+- Keep natural symmetry for a child.
+
+5. LIPS
+- Thickness = averaged inheritance with ±15% natural variance.
+- Preserve proportionality and human realism.
+
+6. HAIR
+- Dark > intermediate > blonde unless both recessive.
+- Curl pattern = additive (halfway between parents unless both straight/curly).
+- Density = midpoint.
+
+7. CHEEKBONES & JAWLINE
+- Additive inheritance: slightly favor the parent with stronger bone definition.
+- Child jawline softer than adults but genetically consistent.
+
+8. EYEBROWS
+- Shape follows dominant parent tendency.
+- If both similar: keep that style.
+
+9. AGE SETTINGS
+- Generate a child approx 5-6 years old.
+- Keep expression neutral and natural, slightly cheerful.
+
+---------------------------------------
+OUTPUT INSTRUCTIONS
+---------------------------------------
+
+Generate the MOST GENETICALLY PROBABLE biological child of the two people shown in the images.
+
+DO NOT:
+- copy the parents' faces directly
+- overlay or blend features poorly
+- distort or age-up/down incorrectly
+
+DO:
+- Apply genetic probabilities above
+- Produce a realistic, natural face of a child
+- Ensure resemblance to *both* parents
+- Maintain human proportions and coherence
+
+---------------------------------------
+CHILD OUTPUT SETTINGS
+---------------------------------------
+- Child age: 5 years old
+- Gender: ${gender}
+- Ethnicity: Determined by genetic combination of both parents
+- Style: Ultra-realistic, photographic, high detail, studio soft lighting
+
+---------------------------------------
+NOW USE THE IMAGES ABOVE (Image 1 = Father, Image 2 = Mother)
+`
           },
         ],
       },

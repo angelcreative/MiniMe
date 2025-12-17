@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, useState } from 'react';
 
 interface CameraCaptureProps {
@@ -184,10 +185,10 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
           <button 
             onClick={handleCapture}
             disabled={!!error}
-            className="group relative h-18 w-18 rounded-full flex items-center justify-center transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="group relative h-20 w-20 rounded-full flex items-center justify-center transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {/* Capture button styling */}
-            <div className="absolute inset-0 rounded-full bg-indigo-100 group-hover:bg-indigo-200 transition-colors duration-300 w-20 h-20 -m-1"></div>
+            <div className="absolute inset-0 rounded-full bg-indigo-100 group-hover:bg-indigo-200 transition-colors duration-300 w-20 h-20"></div>
             <div className="relative h-16 w-16 rounded-full bg-white border-4 border-indigo-500 shadow-sm" />
           </button>
         </div>
