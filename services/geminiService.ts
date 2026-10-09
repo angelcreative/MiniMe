@@ -1,9 +1,34 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { ChildGender } from "../types";
 
+const getApiKey = (): string | undefined => {
+  const key = process.env.API_KEY || process.env.GEMINI_API_KEY;
+  return key && key.trim() ? key.trim() : undefined;
+};
+
+/** Placeholder PNG when GEMINI_API_KEY is missing (local / demo). */
+const mockChildImage = (gender: ChildGender): string => {
+  const label = gender === "boy" ? "MiniMe Boy" : "MiniMe Girl";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+    <defs>
+      <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#99f6e4"/>
+        <stop offset="100%" stop-color="#a5b4fc"/>
+      </linearGradient>
+    </defs>
+    <rect width="512" height="512" fill="url(#g)"/>
+    <circle cx="256" cy="200" r="88" fill="#fde68a" stroke="#f59e0b" stroke-width="4"/>
+    <circle cx="224" cy="188" r="8" fill="#334155"/>
+    <circle cx="288" cy="188" r="8" fill="#334155"/>
+    <path d="M220 230 Q256 258 292 230" fill="none" stroke="#334155" stroke-width="6" stroke-linecap="round"/>
+    <text x="256" y="360" text-anchor="middle" font-family="Quicksand,sans-serif" font-size="28" font-weight="700" fill="#334155">${label}</text>
+    <text x="256" y="400" text-anchor="middle" font-family="Quicksand,sans-serif" font-size="16" fill="#64748b">Demo mode — set GEMINI_API_KEY</text>
+  </svg>`;
+  return `data:image/svg+xml;base64,${btoa(svg)}`;
+};
+
 const getClient = () => {
-  const apiKey = process.env.API_KEY;
+  const apiKey = getApiKey();
   if (!apiKey) {
     throw new Error("API Key not found. Please ensure process.env.API_KEY is set.");
   }
@@ -17,6 +42,12 @@ export const generateChildFace = async (
   momMimeType: string,
   gender: ChildGender
 ): Promise<string> => {
+  if (!getApiKey()) {
+    // Allow local UI testing without a Gemini key
+    await new Promise((r) => setTimeout(r, 600));
+    return mockChildImage(gender);
+  }
+
   const ai = getClient();
   
   // Clean base64 strings if they contain headers
