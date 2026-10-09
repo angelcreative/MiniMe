@@ -1,17 +1,23 @@
 {
   "name": "minime-ai",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:api": "node --watch --env-file=.env server/index.mjs",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "node server/index.mjs",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@google/genai": "^1.31.0",
+    "express": "^5.1.0",
+    "express-rate-limit": "^7.5.1",
+    "react": "^19.2.1",
     "react-dom": "^19.2.1",
-    "react": "^19.2.1"
+    "stripe": "^18.5.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
