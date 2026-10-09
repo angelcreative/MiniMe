@@ -8,6 +8,8 @@ import {
 interface Props {
   currency: CheckoutCurrency;
   onCurrencyChange: (c: CheckoutCurrency) => void;
+  /** Persist parent photos before leaving for Stripe. */
+  onBeforeRedirect?: () => void | Promise<void>;
   onPaymentSuccess: (paymentToken: string) => void;
   onPaymentError: (message: string) => void;
 }
@@ -20,6 +22,7 @@ const DISPLAY: Record<CheckoutCurrency, { amount: string; symbol: string }> = {
 export const PaymentCheckout: React.FC<Props> = ({
   currency,
   onCurrencyChange,
+  onBeforeRedirect,
   onPaymentSuccess,
   onPaymentError,
 }) => {
@@ -58,13 +61,23 @@ export const PaymentCheckout: React.FC<Props> = ({
     setLoading(true);
     setError(null);
     try {
+      if (onBeforeRedirect) {
+        await onBeforeRedirect();
+      }
       const { url, sessionId } = await createCheckoutSession(currency);
       setCheckoutUrl(url);
-      const popup = window.open(url, '_blank');
-      if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-        setError('Popup blocked. Please click the button below to pay securely.');
+      // Same-window redirect keeps draft storage in this browsing context.
+      // Fallback: if navigation is blocked (rare), open tab + poll.
+      try {
+        window.location.assign(url);
+        return;
+      } catch {
+        const popup = window.open(url, '_blank');
+        if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+          setError('Popup blocked. Please click the button below to pay securely.');
+        }
+        startPolling(sessionId);
       }
-      startPolling(sessionId);
     } catch (e: any) {
       const msg = e?.message || 'Failed to connect to Stripe server. Please try again.';
       setError(msg);
@@ -135,13 +148,16 @@ export const PaymentCheckout: React.FC<Props> = ({
           <div className="space-y-1">
             <h4 className="text-sm font-bold text-slate-800">Awaiting Secure Payment...</h4>
             <p className="text-[11px] text-slate-500 leading-relaxed max-w-[240px] mx-auto">
-              We opened Stripe Checkout in a secure new tab. Please complete payment there.
+              Complete payment in the Stripe tab. This page will continue automatically.
             </p>
           </div>
           <div className="pt-2 flex flex-col gap-1.5 items-center justify-center">
             <button
               type="button"
-              onClick={() => checkoutUrl && window.open(checkoutUrl, '_blank')}
+              onClick={async () => {
+                if (onBeforeRedirect) await onBeforeRedirect();
+                if (checkoutUrl) window.open(checkoutUrl, '_blank');
+              }}
               className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg"
             >
               Reopen Stripe Gateway

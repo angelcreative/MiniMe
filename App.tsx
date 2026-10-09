@@ -8,6 +8,21 @@ import {
   generateChildPortrait,
   verifyCheckoutSession,
 } from './services/apiService';
+import {
+  clearDraftAfterSuccess,
+  loadDraftDad,
+  loadDraftGender,
+  loadDraftMom,
+  loadDraftPaymentToken,
+  readPhotosForGenerate,
+  saveDraftGender,
+  saveDraftImage,
+  saveDraftPaymentToken,
+  storedToUploaded,
+} from './services/draftStorage';
+
+const PHOTOS_MISSING_PAID =
+  'Payment already verified — please re-upload both parent photos, then click generate. You will not be charged again.';
 
 const detectCurrency = (): CheckoutCurrency => {
   try {
@@ -27,33 +42,15 @@ const detectCurrency = (): CheckoutCurrency => {
 };
 
 const App: React.FC = () => {
-  const [dadImage, setDadImage] = useState<UploadedImage | null>(() => {
-    try {
-      const raw = sessionStorage.getItem('dadImage');
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  });
-  const [momImage, setMomImage] = useState<UploadedImage | null>(() => {
-    try {
-      const raw = sessionStorage.getItem('momImage');
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  });
-  const [gender, setGender] = useState<ChildGender>(() => {
-    try {
-      return (sessionStorage.getItem('gender') as ChildGender) || 'girl';
-    } catch {
-      return 'girl';
-    }
-  });
+  const [dadImage, setDadImage] = useState<UploadedImage | null>(() => loadDraftDad());
+  const [momImage, setMomImage] = useState<UploadedImage | null>(() => loadDraftMom());
+  const [gender, setGender] = useState<ChildGender>(() => loadDraftGender());
   const [currency, setCurrency] = useState<CheckoutCurrency>(detectCurrency);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [verifying, setVerifying] = useState(false);
-  const [paymentToken, setPaymentToken] = useState<string | null>(null);
+  const [paymentToken, setPaymentToken] = useState<string | null>(() =>
+    loadDraftPaymentToken()
+  );
   const [genState, setGenState] = useState<GenerationState>({
     isLoading: false,
     resultImage: null,
@@ -62,62 +59,68 @@ const App: React.FC = () => {
 
   const persistDad = (img: UploadedImage | null) => {
     setDadImage(img);
-    try {
-      if (img) sessionStorage.setItem('dadImage', JSON.stringify(img));
-      else sessionStorage.removeItem('dadImage');
-    } catch {
-      /* ignore quota */
-    }
+    void saveDraftImage('dad', img);
   };
 
   const persistMom = (img: UploadedImage | null) => {
     setMomImage(img);
-    try {
-      if (img) sessionStorage.setItem('momImage', JSON.stringify(img));
-      else sessionStorage.removeItem('momImage');
-    } catch {
-      /* ignore */
-    }
+    void saveDraftImage('mom', img);
   };
 
   const persistGender = (g: ChildGender) => {
     setGender(g);
-    try {
-      sessionStorage.setItem('gender', g);
-    } catch {
-      /* ignore */
-    }
+    saveDraftGender(g);
+  };
+
+  const rememberPaymentToken = (token: string | null) => {
+    setPaymentToken(token);
+    saveDraftPaymentToken(token);
+  };
+
+  const resolveParents = (): {
+    dad: UploadedImage | null;
+    mom: UploadedImage | null;
+  } => {
+    const fromStore = readPhotosForGenerate();
+    const dad =
+      dadImage || (fromStore.dad ? storedToUploaded(fromStore.dad) : null);
+    const mom =
+      momImage || (fromStore.mom ? storedToUploaded(fromStore.mom) : null);
+    if (dad && !dadImage) setDadImage(dad);
+    if (mom && !momImage) setMomImage(mom);
+    return { dad, mom };
   };
 
   const runGeneration = async (token: string) => {
-    setPaymentToken(token);
+    rememberPaymentToken(token);
     setGenState({ isLoading: true, resultImage: null, error: null });
     setCheckoutOpen(true);
+
+    const { dad, mom } = resolveParents();
+    if (!dad || !mom) {
+      setGenState({
+        isLoading: false,
+        resultImage: null,
+        error: PHOTOS_MISSING_PAID,
+      });
+      setCheckoutOpen(false);
+      // Keep paymentToken so a second generate (after re-upload) skips checkout.
+      return;
+    }
+
     try {
-      const dad =
-        dadImage ||
-        (sessionStorage.getItem('dadImage')
-          ? JSON.parse(sessionStorage.getItem('dadImage')!)
-          : null);
-      const mom =
-        momImage ||
-        (sessionStorage.getItem('momImage')
-          ? JSON.parse(sessionStorage.getItem('momImage')!)
-          : null);
-      if (!dad || !mom) {
-        throw new Error('Parent photos are missing. Please upload both photos again.');
-      }
       const resultBase64 = await generateChildPortrait({
         dadBase64: dad.base64,
         dadMimeType: dad.mimeType,
         momBase64: mom.base64,
         momMimeType: mom.mimeType,
-        gender,
+        gender: loadDraftGender() || gender,
         paymentToken: token,
       });
+      clearDraftAfterSuccess();
+      rememberPaymentToken(null);
       setGenState({ isLoading: false, resultImage: resultBase64, error: null });
       setCheckoutOpen(false);
-      setPaymentToken(null);
     } catch (err: any) {
       setGenState({
         isLoading: false,
@@ -125,7 +128,12 @@ const App: React.FC = () => {
         error: err?.message || 'Failed to generate image. Please try again.',
       });
       setCheckoutOpen(false);
-      setPaymentToken(null);
+      // Keep token on transient failures when server has not consumed it yet.
+      // If the server responds "already used", clear so user can pay again.
+      const msg = String(err?.message || '');
+      if (/already used|already been used/i.test(msg)) {
+        rememberPaymentToken(null);
+      }
     }
   };
 
@@ -139,22 +147,31 @@ const App: React.FC = () => {
         setVerifying(true);
         setCheckoutOpen(true);
         setGenState({ isLoading: false, resultImage: null, error: null });
+        // Restore drafts before generate (Stripe may have returned in a new tab).
+        const dad = loadDraftDad();
+        const mom = loadDraftMom();
+        if (dad) setDadImage(dad);
+        if (mom) setMomImage(mom);
+        setGender(loadDraftGender());
         try {
           const result = await verifyCheckoutSession(sessionId);
           if (!result?.paymentToken) {
             throw new Error('Your payment could not be verified by Stripe.');
           }
-          // runGeneration sets paymentToken synchronously before its first await;
-          // React batches that with setVerifying(false) so PaymentCheckout never flashes.
           setVerifying(false);
           await runGeneration(result.paymentToken);
         } catch (e: any) {
           setVerifying(false);
           setCheckoutOpen(false);
+          const token = loadDraftPaymentToken();
           setGenState({
             isLoading: false,
             resultImage: null,
-            error: e?.message || 'Failed to verify Stripe payment.',
+            error:
+              e?.message ||
+              (token
+                ? PHOTOS_MISSING_PAID
+                : 'Failed to verify Stripe payment.'),
           });
         }
       })();
@@ -164,17 +181,45 @@ const App: React.FC = () => {
         ...s,
         error: 'Payment was cancelled. Please try again.',
       }));
+    } else {
+      // Returning visitor with a saved unpaid draft token from a prior paid return.
+      const existing = loadDraftPaymentToken();
+      if (existing && (!loadDraftDad() || !loadDraftMom())) {
+        setGenState((s) => ({
+          ...s,
+          error: PHOTOS_MISSING_PAID,
+        }));
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleGenerateClick = () => {
-    if (!dadImage || !momImage) return;
-    // Open checkout only — do NOT set isLoading here or the UI skips
-    // PaymentCheckout and falsely shows "Payment Verified".
-    setPaymentToken(null);
-    setGenState({ isLoading: false, resultImage: null, error: null });
-    setCheckoutOpen(true);
+    const { dad, mom } = resolveParents();
+    if (!dad || !mom) {
+      if (paymentToken || loadDraftPaymentToken()) {
+        setGenState({
+          isLoading: false,
+          resultImage: null,
+          error: PHOTOS_MISSING_PAID,
+        });
+      }
+      return;
+    }
+    const token = paymentToken || loadDraftPaymentToken();
+    if (token) {
+      // Already paid — generate without opening Stripe again.
+      void runGeneration(token);
+      return;
+    }
+    // Flush latest photos to storage before Stripe redirect / new tab.
+    void (async () => {
+      await saveDraftImage('dad', dad);
+      await saveDraftImage('mom', mom);
+      saveDraftGender(gender);
+      setGenState({ isLoading: false, resultImage: null, error: null });
+      setCheckoutOpen(true);
+    })();
   };
 
   const handleDownload = async () => {
@@ -236,6 +281,8 @@ const App: React.FC = () => {
       👩
     </span>
   );
+
+  const paidReady = Boolean(paymentToken);
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 md:p-8 selection:bg-indigo-100">
@@ -321,10 +368,19 @@ const App: React.FC = () => {
                   >
                     {genState.isLoading
                       ? `Creating Magic...`
-                      : `Meet Your Future ${gender === 'boy' ? 'Son' : 'Daughter'}`}
+                      : paidReady
+                        ? `Generate (payment verified)`
+                        : `Meet Your Future ${gender === 'boy' ? 'Son' : 'Daughter'}`}
                   </Button>
                 </div>
               </div>
+
+              {paidReady && !genState.resultImage && (
+                <p className="text-center text-emerald-600 text-sm font-medium bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-100">
+                  Payment verified. Upload both photos if needed, then click generate — you will not
+                  be charged again.
+                </p>
+              )}
 
               {genState.error && (
                 <p className="text-center text-rose-400 text-sm font-medium bg-rose-50 px-4 py-2 rounded-lg border border-rose-100">
@@ -401,7 +457,7 @@ const App: React.FC = () => {
                         Validating your Checkout session with Stripe…
                       </p>
                     </div>
-                  ) : paymentToken ? (
+                  ) : paymentToken && genState.isLoading ? (
                     <div className="text-center space-y-4 max-w-[350px]">
                       <div className="relative w-20 h-20 mx-auto">
                         <div className="absolute inset-0 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
@@ -418,6 +474,11 @@ const App: React.FC = () => {
                     <PaymentCheckout
                       currency={currency}
                       onCurrencyChange={setCurrency}
+                      onBeforeRedirect={async () => {
+                        await saveDraftImage('dad', dadImage);
+                        await saveDraftImage('mom', momImage);
+                        saveDraftGender(gender);
+                      }}
                       onPaymentSuccess={(token) => {
                         void runGeneration(token);
                       }}
