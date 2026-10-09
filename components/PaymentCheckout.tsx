@@ -99,7 +99,7 @@ export const PaymentCheckout: React.FC<Props> = ({
           Unlock Baby Portrait
         </h3>
         <p className="text-slate-500 text-[11px] font-medium max-w-xs mx-auto">
-          Pay a secure one-time processing fee to complete genetic compilation with Gemini AI.
+          Pay a secure one-time processing fee to complete genetic compilation with AI.
         </p>
       </div>
 

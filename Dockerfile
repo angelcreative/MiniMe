@@ -8,7 +8,7 @@ RUN npm ci
 
 COPY . .
 
-# Do NOT pass GEMINI_API_KEY / Stripe secrets as build-args.
+# Do NOT pass OPENAI_API_KEY / Stripe secrets as build-args.
 # Vite must never inline API secrets into the browser bundle.
 RUN npm run build
 
@@ -27,5 +27,5 @@ COPY server ./server
 EXPOSE 8080
 
 # Runtime secrets via Cloud Run env / Secret Manager:
-#   GEMINI_API_KEY, STRIPE_SECRET_KEY, PAYMENT_TOKEN_SECRET, APP_BASE_URL
+#   OPENAI_API_KEY, STRIPE_SECRET_KEY, PAYMENT_TOKEN_SECRET, APP_BASE_URL
 CMD ["node", "server/index.mjs"]
