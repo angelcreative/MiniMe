@@ -1,4 +1,4 @@
-# MiniMe AI — Cloud Run image: Vite SPA + Express API (Stripe + Gemini server-side)
+# MiniMe AI — Docker image for Railway / Render / any host: Vite SPA + Express API
 
 FROM node:22-alpine AS build
 WORKDIR /app
@@ -26,6 +26,6 @@ COPY server ./server
 
 EXPOSE 8080
 
-# Runtime secrets via Cloud Run env / Secret Manager:
+# Runtime secrets (set in Railway/Render dashboard, not in the image):
 #   OPENAI_API_KEY, STRIPE_SECRET_KEY, PAYMENT_TOKEN_SECRET, APP_BASE_URL
 CMD ["node", "server/index.mjs"]
