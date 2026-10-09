@@ -1,75 +1,57 @@
 # MiniMe AI
 
-Upload photos of both parents and generate an AI prediction of their child at age 5 (Gemini).
+Upload photos of both parents and generate an AI prediction of their child at age 5 (Gemini), gated by a Stripe one-time payment.
 
-Live site: [https://myminime.space](https://myminime.space) — was returning **HTTP 503** because Cloud Build could not find a root `Dockerfile`.
+Live site: [https://myminime.space](https://myminime.space)
 
-## Root cause
+## Security model (required for public launch)
 
-Google Cloud Build log:
-
-```text
-unable to prepare context: unable to evaluate symlinks in Dockerfile path:
-lstat /workspace/Dockerfile: no such file or directory
-```
-
-Cloud Build expects a **`Dockerfile` at the repository root**. Without a successful image build, Cloud Run / App Engine has no healthy revision → Google Frontend 503.
+1. **Gemini API key is server-only** — never `VITE_*`, never Vite `define`, never Docker build-arg into the SPA.
+2. **Browser calls `/api/generate-baby`** — it cannot call Gemini directly.
+3. **Stripe Checkout amount is set on the server** — the client may choose currency only.
+4. **After `payment_status === paid`**, the API issues a **HMAC one-time `paymentToken`** (TTL).
+5. **`/api/generate-baby` verifies + consumes the token before** calling Gemini (one payment → one generation).
+6. Rate limits on checkout and generate.
 
 ## Local development
 
 ```bash
-cp .env.example .env   # optional: set GEMINI_API_KEY
+cp .env.example .env
+# set GEMINI_API_KEY, STRIPE_SECRET_KEY, PAYMENT_TOKEN_SECRET
+
 npm install
-npm run dev -- --port 3847 --host 127.0.0.1
+npm run dev:api   # Express on :8080
+npm run dev       # Vite on :3000, proxies /api → :8080
 ```
 
-Open [MiniMe AI](http://127.0.0.1:3847). Without `GEMINI_API_KEY`, generate still works in **demo mode** (placeholder child image).
-
-Production build:
+## Production (Cloud Run)
 
 ```bash
 npm run build
-npm run preview
+npm start   # serves dist/ + /api/* on $PORT
 ```
 
-## Cloud Build / Cloud Run
+Dockerfile builds the SPA **without** secrets, then runs `node server/index.mjs`. Inject at **runtime**:
 
-This repo includes:
+| Env | Purpose |
+|-----|---------|
+| `GEMINI_API_KEY` | Server-side Gemini |
+| `STRIPE_SECRET_KEY` | Checkout + session verify |
+| `PAYMENT_TOKEN_SECRET` | HMAC for one-time tokens (use a dedicated secret) |
+| `APP_BASE_URL` | `https://myminime.space` for Stripe redirect URLs |
+| `PRICE_EUR_CENTS` / `PRICE_USD_CENTS` | Fixed prices (default 100 / 110) |
 
-| File | Purpose |
-|------|---------|
-| `Dockerfile` | Multi-stage: Vite build → `serve` static SPA on `$PORT` (default 8080) |
-| `.dockerignore` | Keeps `node_modules` / secrets out of the build context |
+## API
 
-### Example `cloudbuild.yaml` (if you use YAML triggers)
-
-```yaml
-steps:
-  - name: gcr.io/cloud-builders/docker
-    args:
-      - build
-      - -t
-      - gcr.io/$PROJECT_ID/minime-ai:$COMMIT_SHA
-      - --build-arg
-      - GEMINI_API_KEY=$_GEMINI_API_KEY
-      - .
-  - name: gcr.io/cloud-builders/docker
-    args: [push, gcr.io/$PROJECT_ID/minime-ai:$COMMIT_SHA]
-images:
-  - gcr.io/$PROJECT_ID/minime-ai:$COMMIT_SHA
-```
-
-Or keep a Docker trigger with **Dockerfile path** = `Dockerfile` and **context** = `.`.
-
-### After pushing this fix
-
-1. Re-run the Cloud Build trigger connected to `angelcreative/MiniMe` (or push this Dockerfile into that private repo).
-2. Deploy / update the Cloud Run service (or GAE Flexible) to the new image; port **8080**.
-3. Pass `GEMINI_API_KEY` as a **build-arg** (Vite inlines it) and/or verify Secret Manager substitution in the trigger.
-4. Confirm custom domain `myminime.space` points at the healthy service.
+| Method | Path | Notes |
+|--------|------|-------|
+| POST | `/api/create-checkout-session` | Body: `{ currency }` only |
+| GET | `/api/verify-session?session_id=` | Returns `{ paymentToken }` iff paid & unused |
+| POST | `/api/generate-baby` | Requires `paymentToken`; consumes it |
+| GET | `/api/health` | Config presence (no secrets) |
 
 ## Stack
 
-- Vite 6 + React 19 + TypeScript
-- `@google/genai` (Gemini image model)
-- Tailwind via CDN (dev/prod)
+- Vite 6 + React 19 + TypeScript (SPA)
+- Express API (Stripe + `@google/genai`)
+- Cloud Run

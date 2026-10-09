@@ -1,5 +1,4 @@
-# MiniMe AI — production image for Cloud Run / Cloud Build
-# Cloud Build expects this file at the repository root.
+# MiniMe AI — Cloud Run image: Vite SPA + Express API (Stripe + Gemini server-side)
 
 FROM node:22-alpine AS build
 WORKDIR /app
@@ -9,23 +8,24 @@ RUN npm ci
 
 COPY . .
 
-# Vite bakes GEMINI_API_KEY into the client bundle at build time.
-# Pass via Cloud Build: --build-arg GEMINI_API_KEY=$$GEMINI_API_KEY (from Secret Manager)
-ARG GEMINI_API_KEY=
-ENV GEMINI_API_KEY=$GEMINI_API_KEY
-
+# Do NOT pass GEMINI_API_KEY / Stripe secrets as build-args.
+# Vite must never inline API secrets into the browser bundle.
 RUN npm run build
 
 FROM node:22-alpine AS runtime
 WORKDIR /app
 
-RUN npm install -g serve@14
-
-COPY --from=build /app/dist ./dist
-
 ENV NODE_ENV=production
 ENV PORT=8080
+
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+COPY --from=build /app/dist ./dist
+COPY server ./server
+
 EXPOSE 8080
 
-# Cloud Run sets PORT; serve static SPA with history fallback
-CMD ["sh", "-c", "serve -s dist -l tcp://0.0.0.0:${PORT}"]
+# Runtime secrets via Cloud Run env / Secret Manager:
+#   GEMINI_API_KEY, STRIPE_SECRET_KEY, PAYMENT_TOKEN_SECRET, APP_BASE_URL
+CMD ["node", "server/index.mjs"]
