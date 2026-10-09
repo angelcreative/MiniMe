@@ -254,11 +254,11 @@ app.get('/api/verify-session', async (req, res) => {
     }
 
     const expected = priceForCurrency(session.currency);
+    // Require exact configured price (reject null, €0, underpay, wrong currency amount).
     if (
-      typeof session.amount_total === 'number' &&
+      typeof session.amount_total !== 'number' ||
       session.amount_total !== expected.unitAmount
     ) {
-      // Allow exact configured price only (blocks underpay / €0 sessions).
       return res.status(402).json({
         success: false,
         message: 'Paid amount does not match the required generation fee.',
@@ -323,6 +323,16 @@ app.post('/api/generate-baby', generateLimiter, async (req, res) => {
           return res.status(403).json({
             success: false,
             message: 'Access Denied: payment is no longer valid.',
+          });
+        }
+        const expected = priceForCurrency(session.currency);
+        if (
+          typeof session.amount_total !== 'number' ||
+          session.amount_total !== expected.unitAmount
+        ) {
+          return res.status(403).json({
+            success: false,
+            message: 'Access Denied: paid amount does not match the required fee.',
           });
         }
       } catch (e) {
