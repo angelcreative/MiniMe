@@ -1,5 +1,5 @@
 {
   "name": "MiniMe AI",
-  "description": "Upload photos of two parents to generate a prediction of what their 5-year-old child might look like using Gemini AI.",
+  "description": "Upload photos of two parents to generate a prediction of what their 5-year-old child might look like using AI.",
   "requestFramePermissions": []
 }

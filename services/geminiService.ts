@@ -1,6 +1,5 @@
 /**
- * @deprecated Client-side Gemini calls are forbidden.
- * Generation runs only on the server after Stripe entitlement checks.
- * See server/index.mjs and services/apiService.ts.
+ * @deprecated Client-side AI calls are forbidden.
+ * Generation goes through /api/generate-baby (OpenAI Images on the server).
  */
 export {};

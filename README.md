@@ -1,23 +1,23 @@
 # MiniMe AI
 
-Upload photos of both parents and generate an AI prediction of their child at age 5 (Gemini), gated by a Stripe one-time payment.
+Upload photos of both parents and generate an AI prediction of their child at age 5 (OpenAI Images), gated by a Stripe one-time payment.
 
 Live site: [https://myminime.space](https://myminime.space)
 
 ## Security model (required for public launch)
 
-1. **Gemini API key is server-only** — never `VITE_*`, never Vite `define`, never Docker build-arg into the SPA.
-2. **Browser calls `/api/generate-baby`** — it cannot call Gemini directly.
+1. **OpenAI API key is server-only** — never `VITE_*`, never Vite `define`, never Docker build-arg into the SPA.
+2. **Browser calls `/api/generate-baby`** — it cannot call OpenAI directly.
 3. **Stripe Checkout amount is set on the server** — the client may choose currency only.
 4. **After `payment_status === paid`**, the API issues a **HMAC one-time `paymentToken`** (TTL).
-5. **`/api/generate-baby` verifies + consumes the token before** calling Gemini (one payment → one generation).
+5. **`/api/generate-baby` verifies payment, generates, then consumes the token** (failed AI calls can retry; one successful generation per payment).
 6. Rate limits on checkout and generate.
 
 ## Local development
 
 ```bash
 cp .env.example .env
-# set GEMINI_API_KEY, STRIPE_SECRET_KEY, PAYMENT_TOKEN_SECRET
+# set OPENAI_API_KEY, STRIPE_SECRET_KEY, PAYMENT_TOKEN_SECRET
 
 npm install
 npm run dev:api   # Express on :8080
@@ -35,7 +35,8 @@ Dockerfile builds the SPA **without** secrets, then runs `node server/index.mjs`
 
 | Env | Purpose |
 |-----|---------|
-| `GEMINI_API_KEY` | Server-side Gemini |
+| `OPENAI_API_KEY` | Server-side OpenAI Images (`sk-…` from platform.openai.com) |
+| `OPENAI_IMAGE_MODEL` | Optional, default `gpt-image-1` |
 | `STRIPE_SECRET_KEY` | Checkout + session verify |
 | `PAYMENT_TOKEN_SECRET` | HMAC for one-time tokens (use a dedicated secret) |
 | `APP_BASE_URL` | `https://myminime.space` for Stripe redirect URLs |
@@ -47,11 +48,11 @@ Dockerfile builds the SPA **without** secrets, then runs `node server/index.mjs`
 |--------|------|-------|
 | POST | `/api/create-checkout-session` | Body: `{ currency }` only |
 | GET | `/api/verify-session?session_id=` | Returns `{ paymentToken }` iff paid & unused |
-| POST | `/api/generate-baby` | Requires `paymentToken`; consumes it |
+| POST | `/api/generate-baby` | Requires `paymentToken`; consumes after success |
 | GET | `/api/health` | Config presence (no secrets) |
 
 ## Stack
 
 - Vite 6 + React 19 + TypeScript (SPA)
-- Express API (Stripe + `@google/genai`)
+- Express API (Stripe + OpenAI Images)
 - Cloud Run

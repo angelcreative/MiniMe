@@ -1,5 +1,5 @@
 /**
- * MiniMe AI API — Stripe entitlement gate + server-side Gemini.
+ * MiniMe AI API — Stripe entitlement gate + server-side OpenAI Images.
  * Secrets stay in process env; never ship to the browser.
  */
 import crypto from 'node:crypto';
@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import Stripe from 'stripe';
-import { GoogleGenAI } from '@google/genai';
+import OpenAI, { toFile } from 'openai';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -18,9 +18,10 @@ const PRICE_EUR_CENTS = Number(process.env.PRICE_EUR_CENTS || 100); // €1.00
 const PRICE_USD_CENTS = Number(process.env.PRICE_USD_CENTS || 110); // $1.10
 const TOKEN_TTL_MS = Number(process.env.PAYMENT_TOKEN_TTL_MS || 15 * 60 * 1000);
 const APP_BASE_URL = (process.env.APP_BASE_URL || '').replace(/\/$/, '');
+const OPENAI_IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1';
 
 const stripeSecret = process.env.STRIPE_SECRET_KEY || '';
-const geminiKey = process.env.GEMINI_API_KEY || '';
+const openaiKey = process.env.OPENAI_API_KEY || '';
 const tokenSecret =
   process.env.PAYMENT_TOKEN_SECRET ||
   process.env.STRIPE_SECRET_KEY ||
@@ -38,6 +39,8 @@ const stripe = stripeSecret ? new Stripe(stripeSecret) : null;
 const consumedSessions = new Map();
 /** @type {Map<string, number>} jti -> consumedAt */
 const consumedTokens = new Map();
+/** @type {Set<string>} jti currently generating (prevents parallel double-spend) */
+const inflightTokens = new Set();
 
 function pruneConsumed(map, maxAgeMs = 24 * 60 * 60 * 1000) {
   const cutoff = Date.now() - maxAgeMs;
@@ -115,37 +118,51 @@ Generate the MOST GENETICALLY PROBABLE biological child of the two people shown 
 Image 1 = Father, Image 2 = Mother
 `.trim();
 
-async function generateWithGemini({ dadBase64, dadMimeType, momBase64, momMimeType, gender }) {
-  if (!geminiKey) {
-    const err = new Error('Gemini is not configured on the server.');
+function stripDataUrl(value) {
+  const s = String(value || '');
+  const i = s.indexOf(',');
+  return i >= 0 ? s.slice(i + 1) : s;
+}
+
+function extForMime(mime) {
+  if (mime === 'image/jpeg' || mime === 'image/jpg') return 'jpg';
+  if (mime === 'image/webp') return 'webp';
+  return 'png';
+}
+
+async function generateWithOpenAI({ dadBase64, dadMimeType, momBase64, momMimeType, gender }) {
+  if (!openaiKey) {
+    const err = new Error('OpenAI is not configured on the server (set OPENAI_API_KEY).');
     err.status = 503;
     throw err;
   }
-  const ai = new GoogleGenAI({ apiKey: geminiKey });
-  const cleanDad = String(dadBase64).split(',')[1] || dadBase64;
-  const cleanMom = String(momBase64).split(',')[1] || momBase64;
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash-image',
-    contents: {
-      parts: [
-        { inlineData: { mimeType: dadMimeType, data: cleanDad } },
-        { inlineData: { mimeType: momMimeType, data: cleanMom } },
-        { text: CHILD_PROMPT(gender) },
-      ],
-    },
+  const openai = new OpenAI({ apiKey: openaiKey });
+  const dadBuf = Buffer.from(stripDataUrl(dadBase64), 'base64');
+  const momBuf = Buffer.from(stripDataUrl(momBase64), 'base64');
+
+  const dadFile = await toFile(dadBuf, `dad.${extForMime(dadMimeType)}`, {
+    type: dadMimeType || 'image/png',
+  });
+  const momFile = await toFile(momBuf, `mom.${extForMime(momMimeType)}`, {
+    type: momMimeType || 'image/png',
   });
 
-  if (response.candidates?.[0]?.content?.parts) {
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData?.data) {
-        return `data:image/png;base64,${part.inlineData.data}`;
-      }
-    }
+  const response = await openai.images.edit({
+    model: OPENAI_IMAGE_MODEL,
+    image: [dadFile, momFile],
+    prompt: CHILD_PROMPT(gender),
+    size: '1024x1024',
+    quality: 'high',
+  });
+
+  const b64 = response.data?.[0]?.b64_json;
+  if (!b64) {
+    const err = new Error('No image data found in the OpenAI response.');
+    err.status = 502;
+    throw err;
   }
-  const err = new Error('No image data found in the Gemini response.');
-  err.status = 502;
-  throw err;
+  return `data:image/png;base64,${b64}`;
 }
 
 const app = express();
@@ -172,7 +189,8 @@ app.get('/api/health', (_req, res) => {
   res.json({
     success: true,
     stripe: Boolean(stripe),
-    gemini: Boolean(geminiKey),
+    openai: Boolean(openaiKey),
+    imageModel: OPENAI_IMAGE_MODEL,
     tokenSigner: Boolean(tokenSecret),
   });
 });
@@ -204,7 +222,7 @@ app.post('/api/create-checkout-session', checkoutLimiter, async (req, res) => {
             unit_amount: unitAmount,
             product_data: {
               name: 'MiniMe AI — Baby Portrait Generation',
-              description: 'One-time fee for a single Gemini AI child portrait.',
+              description: 'One-time fee for a single AI child portrait.',
             },
           },
         },
@@ -303,15 +321,18 @@ app.post('/api/generate-baby', generateLimiter, async (req, res) => {
       return res.status(403).json({
         success: false,
         message:
-          'Access Denied: Please complete payment to authorize Gemini AI generation.',
+          'Access Denied: Please complete payment to authorize AI generation.',
       });
     }
 
-    // Consume BEFORE calling Gemini so retries/races cannot multiply cost.
-    if (!consumePaymentToken(payload)) {
+    if (
+      consumedSessions.has(payload.sid) ||
+      consumedTokens.has(payload.jti) ||
+      inflightTokens.has(payload.jti)
+    ) {
       return res.status(409).json({
         success: false,
-        message: 'This payment token was already used.',
+        message: 'This payment token was already used or is in progress.',
       });
     }
 
@@ -352,15 +373,28 @@ app.post('/api/generate-baby', generateLimiter, async (req, res) => {
     }
 
     const g = gender === 'boy' ? 'boy' : 'girl';
-    const resultImage = await generateWithGemini({
-      dadBase64,
-      dadMimeType,
-      momBase64,
-      momMimeType,
-      gender: g,
-    });
+    inflightTokens.add(payload.jti);
+    try {
+      const resultImage = await generateWithOpenAI({
+        dadBase64,
+        dadMimeType,
+        momBase64,
+        momMimeType,
+        gender: g,
+      });
 
-    return res.json({ success: true, resultImage });
+      // Only burn the payment after a successful image (failed AI calls can retry).
+      if (!consumePaymentToken(payload)) {
+        return res.status(409).json({
+          success: false,
+          message: 'This payment token was already used.',
+        });
+      }
+
+      return res.json({ success: true, resultImage });
+    } finally {
+      inflightTokens.delete(payload.jti);
+    }
   } catch (err) {
     console.error('generate-baby', err);
     return res.status(err?.status || 500).json({
@@ -385,6 +419,6 @@ app.use((req, res, next) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[minime] listening on :${PORT}`);
   console.log(
-    `[minime] stripe=${Boolean(stripe)} gemini=${Boolean(geminiKey)} prices=EUR:${PRICE_EUR_CENTS}¢ USD:${PRICE_USD_CENTS}¢`
+    `[minime] stripe=${Boolean(stripe)} openai=${Boolean(openaiKey)} model=${OPENAI_IMAGE_MODEL} prices=EUR:${PRICE_EUR_CENTS}¢ USD:${PRICE_USD_CENTS}¢`
   );
 });
