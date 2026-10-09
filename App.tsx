@@ -138,12 +138,14 @@ const App: React.FC = () => {
       (async () => {
         setVerifying(true);
         setCheckoutOpen(true);
-        setGenState({ isLoading: true, resultImage: null, error: null });
+        setGenState({ isLoading: false, resultImage: null, error: null });
         try {
           const result = await verifyCheckoutSession(sessionId);
           if (!result?.paymentToken) {
             throw new Error('Your payment could not be verified by Stripe.');
           }
+          // runGeneration sets paymentToken synchronously before its first await;
+          // React batches that with setVerifying(false) so PaymentCheckout never flashes.
           setVerifying(false);
           await runGeneration(result.paymentToken);
         } catch (e: any) {
@@ -168,8 +170,10 @@ const App: React.FC = () => {
 
   const handleGenerateClick = () => {
     if (!dadImage || !momImage) return;
+    // Open checkout only — do NOT set isLoading here or the UI skips
+    // PaymentCheckout and falsely shows "Payment Verified".
     setPaymentToken(null);
-    setGenState({ isLoading: true, resultImage: null, error: null });
+    setGenState({ isLoading: false, resultImage: null, error: null });
     setCheckoutOpen(true);
   };
 
@@ -397,7 +401,7 @@ const App: React.FC = () => {
                         Validating your Checkout session with Stripe…
                       </p>
                     </div>
-                  ) : paymentToken || genState.isLoading ? (
+                  ) : paymentToken ? (
                     <div className="text-center space-y-4 max-w-[350px]">
                       <div className="relative w-20 h-20 mx-auto">
                         <div className="absolute inset-0 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
