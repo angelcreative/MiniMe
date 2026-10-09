@@ -24,7 +24,9 @@ npm run dev:api   # Express on :8080
 npm run dev       # Vite on :3000, proxies /api → :8080
 ```
 
-## Production (Cloud Run)
+## Production (recomendado: Railway)
+
+Guía paso a paso (sin Google Cloud): **[DEPLOY.md](./DEPLOY.md)**
 
 ```bash
 npm run build
@@ -39,7 +41,7 @@ Dockerfile builds the SPA **without** secrets, then runs `node server/index.mjs`
 | `OPENAI_IMAGE_MODEL` | Optional, default `gpt-image-1` |
 | `STRIPE_SECRET_KEY` | Checkout + session verify |
 | `PAYMENT_TOKEN_SECRET` | HMAC for one-time tokens (use a dedicated secret) |
-| `APP_BASE_URL` | `https://myminime.space` for Stripe redirect URLs |
+| `APP_BASE_URL` | Public HTTPS URL (Railway domain or `https://myminime.space`) |
 | `PRICE_EUR_CENTS` / `PRICE_USD_CENTS` | Fixed prices (default 100 / 110) |
 
 ## API

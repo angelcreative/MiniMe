@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: minime-ai
+    runtime: docker
+    plan: starter
+    healthCheckPath: /api/health
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: PAYMENT_TOKEN_SECRET
+        generateValue: true
+      - key: APP_BASE_URL
+        sync: false
+      - key: PRICE_EUR_CENTS
+        value: "100"
+      - key: PRICE_USD_CENTS
+        value: "110"
+      - key: NODE_ENV
+        value: production
