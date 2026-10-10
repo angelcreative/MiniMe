@@ -326,7 +326,7 @@ const App: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
-          <div className="lg:col-span-7 flex flex-col gap-8 order-2 lg:order-1">
+          <div className="lg:col-span-7 flex flex-col gap-8">
             <header className="text-center lg:text-left space-y-2">
               <div className="inline-block px-4 py-1.5 bg-white rounded-full shadow-sm mb-2 border border-slate-100">
                 <span className="text-xs font-bold uppercase tracking-widest text-indigo-500">
