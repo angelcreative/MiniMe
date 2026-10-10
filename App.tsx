@@ -21,6 +21,7 @@ import {
   storedToUploaded,
 } from './services/draftStorage';
 import { DemoExample } from './components/DemoExample';
+import { GenerationWaitExperience } from './components/GenerationWaitExperience';
 
 const PHOTOS_MISSING_PAID =
   'Payment already verified — please re-upload both parent photos, then click generate. You will not be charged again.';
@@ -519,24 +520,10 @@ const App: React.FC = () => {
                       </p>
                     </div>
                   ) : (paymentToken || creatorMode) && genState.isLoading ? (
-                    <div className="text-center space-y-4 max-w-[350px]">
-                      <div className="relative w-20 h-20 mx-auto">
-                        <div className="absolute inset-0 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
-                      </div>
-                      <div
-                        className={`inline-block px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
-                          creatorMode
-                            ? 'bg-amber-50 text-amber-700 border-amber-100'
-                            : 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                        }`}
-                      >
-                        {creatorMode ? 'Creator Access' : 'Payment Verified'}
-                      </div>
-                      <h3 className="text-lg font-extrabold text-slate-800">Combining DNA Traits</h3>
-                      <p className="text-slate-400 text-xs">
-                        Rendering your future child&apos;s portrait. Please don&apos;t close this window.
-                      </p>
-                    </div>
+                    <GenerationWaitExperience
+                      mode={creatorMode ? 'creator' : 'paid'}
+                      gender={gender}
+                    />
                   ) : creatorMode ? (
                     // Never fall through to Stripe checkout while creator access is active.
                     <div className="text-center space-y-6 max-w-xs">
