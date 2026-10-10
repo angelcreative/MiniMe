@@ -440,14 +440,14 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          <div className="lg:col-span-5 order-1 lg:order-2 lg:sticky lg:top-8">
+          <div className="lg:col-span-5 lg:sticky lg:top-8">
             <div
               className={`
               relative w-full rounded-[2.5rem] overflow-hidden transition-all duration-500
               ${
                 genState.resultImage
                   ? 'bg-white shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)]'
-                  : 'bg-white/50 border-2 border-dashed border-indigo-100 min-h-[400px] lg:min-h-[600px] flex flex-col items-center justify-center p-8'
+                  : 'bg-white/50 border-2 border-dashed border-indigo-100 min-h-[220px] sm:min-h-[280px] lg:min-h-[600px] flex flex-col items-center justify-center p-6 md:p-8'
               }
             `}
             >
