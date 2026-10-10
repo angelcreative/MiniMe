@@ -20,6 +20,7 @@ import {
   saveDraftPaymentToken,
   storedToUploaded,
 } from './services/draftStorage';
+import { DemoExample } from './components/DemoExample';
 
 const PHOTOS_MISSING_PAID =
   'Payment already verified — please re-upload both parent photos, then click generate. You will not be charged again.';
@@ -505,6 +506,8 @@ const App: React.FC = () => {
             </div>
           </div>
         </div>
+
+        <DemoExample />
       </div>
 
       <style>{`
