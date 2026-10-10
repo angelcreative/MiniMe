@@ -45,7 +45,8 @@ export async function generateChildPortrait(params: {
   momBase64: string;
   momMimeType: string;
   gender: ChildGender;
-  paymentToken: string;
+  paymentToken?: string;
+  creatorBypass?: string;
 }): Promise<string> {
   const res = await fetch('/api/generate-baby', {
     method: 'POST',
