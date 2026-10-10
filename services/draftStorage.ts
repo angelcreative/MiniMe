@@ -91,9 +91,10 @@ export async function compressForStorage(
     const ctx = canvas.getContext('2d');
     if (!ctx) return { base64: dataUrl, mimeType };
     ctx.drawImage(img, 0, 0, w, h);
+    const normalized = String(mimeType || '').toLowerCase();
     const outMime =
-      mimeType === 'image/png' || mimeType === 'image/webp'
-        ? mimeType
+      normalized === 'image/png' || normalized === 'image/webp'
+        ? normalized
         : 'image/jpeg';
     const base64 =
       outMime === 'image/jpeg'

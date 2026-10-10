@@ -135,8 +135,42 @@ function stripDataUrl(value) {
   return i >= 0 ? s.slice(i + 1) : s;
 }
 
+/** Same set as the client: JPEG/JPG (incl. pjpeg), PNG, WebP. */
+const ACCEPTED_PARENT_MIMES = new Set([
+  'image/jpeg',
+  'image/jpg',
+  'image/pjpeg',
+  'image/png',
+  'image/webp',
+]);
+
+/**
+ * Normalize phone / browser MIME quirks to a canonical type OpenAI accepts.
+ * OpenAI Images edit accepts PNG, WEBP, and JPG — keep WebP as-is.
+ */
+function normalizeParentMime(mime) {
+  const m = String(mime || '')
+    .toLowerCase()
+    .trim();
+  if (m === 'image/jpg' || m === 'image/pjpeg') return 'image/jpeg';
+  if (ACCEPTED_PARENT_MIMES.has(m)) return m;
+  return null;
+}
+
+function assertParentMime(mime, role) {
+  const normalized = normalizeParentMime(mime);
+  if (!normalized) {
+    const err = new Error(
+      `${role} photo must be JPG, PNG, or WebP (received: ${mime || 'unknown'}). iPhone HEIC is not supported — export as JPG in Photos.`
+    );
+    err.status = 400;
+    throw err;
+  }
+  return normalized;
+}
+
 function extForMime(mime) {
-  if (mime === 'image/jpeg' || mime === 'image/jpg') return 'jpg';
+  if (mime === 'image/jpeg') return 'jpg';
   if (mime === 'image/webp') return 'webp';
   return 'png';
 }
@@ -148,15 +182,28 @@ async function generateWithOpenAI({ dadBase64, dadMimeType, momBase64, momMimeTy
     throw err;
   }
 
+  const dadMime = assertParentMime(dadMimeType, 'Dad');
+  const momMime = assertParentMime(momMimeType, 'Mom');
+
   const openai = new OpenAI({ apiKey: openaiKey });
   const dadBuf = Buffer.from(stripDataUrl(dadBase64), 'base64');
   const momBuf = Buffer.from(stripDataUrl(momBase64), 'base64');
 
-  const dadFile = await toFile(dadBuf, `dad.${extForMime(dadMimeType)}`, {
-    type: dadMimeType || 'image/png',
+  // Soft size guard after client compress (~15MB raw each would be enormous as base64).
+  const MAX_PARENT_BYTES = 12 * 1024 * 1024;
+  if (dadBuf.length > MAX_PARENT_BYTES || momBuf.length > MAX_PARENT_BYTES) {
+    const err = new Error(
+      'A parent photo is too large after upload. Please use a JPG/PNG/WebP under 15MB.'
+    );
+    err.status = 413;
+    throw err;
+  }
+
+  const dadFile = await toFile(dadBuf, `dad.${extForMime(dadMime)}`, {
+    type: dadMime,
   });
-  const momFile = await toFile(momBuf, `mom.${extForMime(momMimeType)}`, {
-    type: momMimeType || 'image/png',
+  const momFile = await toFile(momBuf, `mom.${extForMime(momMime)}`, {
+    type: momMime,
   });
 
   const response = await openai.images.edit({
@@ -178,7 +225,8 @@ async function generateWithOpenAI({ dadBase64, dadMimeType, momBase64, momMimeTy
 
 const app = express();
 app.set('trust proxy', 1);
-app.use(express.json({ limit: '12mb' }));
+// Two parent photos as data-URLs after client compress; 25mb leaves headroom for phones.
+app.use(express.json({ limit: '25mb' }));
 
 const checkoutLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
