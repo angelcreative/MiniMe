@@ -4,6 +4,7 @@ import {
   createCheckoutSession,
   verifyCheckoutSession,
 } from '../services/apiService';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface Props {
   currency: CheckoutCurrency;
@@ -26,6 +27,7 @@ export const PaymentCheckout: React.FC<Props> = ({
   onPaymentSuccess,
   onPaymentError,
 }) => {
+  const { t } = useLanguage();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
@@ -66,20 +68,18 @@ export const PaymentCheckout: React.FC<Props> = ({
       }
       const { url, sessionId } = await createCheckoutSession(currency);
       setCheckoutUrl(url);
-      // Same-window redirect keeps draft storage in this browsing context.
-      // Fallback: if navigation is blocked (rare), open tab + poll.
       try {
         window.location.assign(url);
         return;
       } catch {
         const popup = window.open(url, '_blank');
         if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-          setError('Popup blocked. Please click the button below to pay securely.');
+          setError(t.popupBlocked);
         }
         startPolling(sessionId);
       }
     } catch (e: any) {
-      const msg = e?.message || 'Failed to connect to Stripe server. Please try again.';
+      const msg = e?.message || t.stripeFail;
       setError(msg);
       onPaymentError(msg);
     } finally {
@@ -93,20 +93,18 @@ export const PaymentCheckout: React.FC<Props> = ({
     <div className="relative z-10 w-full max-w-[350px] bg-white/95 backdrop-blur-xl p-5 md:p-6 rounded-3xl border border-slate-100 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.12)] space-y-4 mx-auto animate-fade-in">
       <div className="text-center space-y-0.5">
         <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-bold uppercase tracking-wider mb-1">
-          Secure Checkout
+          {t.checkoutBadge}
         </div>
-        <h3 className="text-xl font-bold text-slate-800 tracking-tight">
-          Unlock Baby Portrait
-        </h3>
+        <h3 className="text-xl font-bold text-slate-800 tracking-tight">{t.checkoutTitle}</h3>
         <p className="text-slate-500 text-[11px] font-medium max-w-xs mx-auto">
-          Pay a secure one-time processing fee to complete genetic compilation with AI.
+          {t.checkoutSubtitle}
         </p>
       </div>
 
       <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100">
         <div>
           <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">
-            Total Processing Fee
+            {t.checkoutFee}
           </span>
           <span className="text-xl font-extrabold text-slate-800 tracking-tight">
             {symbol}
@@ -146,9 +144,9 @@ export const PaymentCheckout: React.FC<Props> = ({
             <div className="absolute inset-0 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
           </div>
           <div className="space-y-1">
-            <h4 className="text-sm font-bold text-slate-800">Awaiting Secure Payment...</h4>
+            <h4 className="text-sm font-bold text-slate-800">{t.awaitingPayment}</h4>
             <p className="text-[11px] text-slate-500 leading-relaxed max-w-[240px] mx-auto">
-              Complete payment in the Stripe tab. This page will continue automatically.
+              {t.awaitingBody}
             </p>
           </div>
           <div className="pt-2 flex flex-col gap-1.5 items-center justify-center">
@@ -160,7 +158,7 @@ export const PaymentCheckout: React.FC<Props> = ({
               }}
               className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg"
             >
-              Reopen Stripe Gateway
+              {t.reopenStripe}
             </button>
             <button
               type="button"
@@ -170,7 +168,7 @@ export const PaymentCheckout: React.FC<Props> = ({
               }}
               className="text-[10px] font-medium text-slate-400 hover:text-slate-600"
             >
-              Cancel
+              {t.cancel}
             </button>
           </div>
         </div>
@@ -182,7 +180,7 @@ export const PaymentCheckout: React.FC<Props> = ({
             disabled={loading}
             className="w-full bg-gradient-to-r from-indigo-600 via-indigo-500 to-indigo-600 text-white font-bold py-3.5 px-4 rounded-xl shadow-md hover:brightness-105 active:scale-[0.98] flex items-center justify-center gap-2 text-xs transition-all disabled:opacity-60"
           >
-            {loading ? 'Redirecting to Stripe...' : 'Pay with Card / Apple Pay / Google Pay'}
+            {loading ? t.redirecting : t.payCta}
           </button>
           {error && (
             <div className="text-rose-500 bg-rose-50 border border-rose-100 p-2.5 rounded-lg text-[11px] font-semibold">

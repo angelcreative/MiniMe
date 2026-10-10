@@ -1,101 +1,26 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { LAB_STAGES, TRIVIA_CARDS, shuffleTrivia } from '../data/trivia';
+import { useLanguage } from '../i18n/LanguageContext';
 
 type WaitMode = 'paid' | 'creator';
-
-type TriviaCard =
-  | { kind: 'fact'; emoji: string; title: string; body: string }
-  | {
-      kind: 'quiz';
-      emoji: string;
-      question: string;
-      answer: boolean;
-      reveal: string;
-    };
-
-const LAB_STAGES = [
-  { label: 'Unzipping DNA helixes', emoji: '🧬' },
-  { label: 'Mixing allele pairs', emoji: '🔀' },
-  { label: 'Reading eye-color genes', emoji: '👀' },
-  { label: 'Blending cheekbone geometry', emoji: '✨' },
-  { label: 'Sampling smile curves', emoji: '😊' },
-  { label: 'Tuning hair & freckle odds', emoji: '💫' },
-  { label: 'Rendering your MiniMe', emoji: '🖼️' },
-];
-
-const TRIVIA: TriviaCard[] = [
-  {
-    kind: 'fact',
-    emoji: '👀',
-    title: 'Eye color is a team sport',
-    body: 'More than a dozen genes influence iris color — it’s rarely a single “blue vs brown” switch.',
-  },
-  {
-    kind: 'quiz',
-    emoji: '🧬',
-    question: 'True or false: babies always get 50% DNA from each parent.',
-    answer: true,
-    reveal: 'True — half from mom, half from dad… but which half is a random shuffle every time.',
-  },
-  {
-    kind: 'fact',
-    emoji: '👃',
-    title: 'Noses take after both sides',
-    body: 'Bridge height, tip shape, and width can each pull traits from different grandparents.',
-  },
-  {
-    kind: 'quiz',
-    emoji: '👧',
-    question: 'True or false: the “baby look” fades because skull proportions change fast.',
-    answer: true,
-    reveal: 'True — big eyes and round cheeks shift as the face grows into adult proportions.',
-  },
-  {
-    kind: 'fact',
-    emoji: '🦷',
-    title: 'Dimples are mostly genetic',
-    body: 'Cheek dimples often run in families, though they can appear or soften with age.',
-  },
-  {
-    kind: 'quiz',
-    emoji: '👨‍👩‍👧',
-    question: 'True or false: siblings can look totally different and still share ~50% DNA.',
-    answer: true,
-    reveal: 'True — each child gets a different random half, so resemblance varies a lot.',
-  },
-  {
-    kind: 'fact',
-    emoji: '🌈',
-    title: 'Hair color can surprise you',
-    body: 'Recessive blond or red alleles can hide for a generation, then show up in a grandchild.',
-  },
-  {
-    kind: 'quiz',
-    emoji: '👂',
-    question: 'True or false: ear shape is partly heritable.',
-    answer: true,
-    reveal: 'True — lobe attachment and helix curves often echo a parent or grandparent.',
-  },
-];
-
-function shuffle<T>(items: T[]): T[] {
-  const copy = [...items];
-  for (let i = copy.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
-}
 
 interface GenerationWaitExperienceProps {
   mode: WaitMode;
   gender: 'boy' | 'girl';
 }
 
+/** Auto-advance is slow on purpose — users can Skip/Next anytime. */
+const AUTO_FACT_MS = 22000;
+const AUTO_QUIZ_IDLE_MS = 28000;
+const AUTO_QUIZ_ANSWERED_MS = 9000;
+const STAGE_MS = 7000;
+
 export const GenerationWaitExperience: React.FC<GenerationWaitExperienceProps> = ({
   mode,
   gender,
 }) => {
-  const deck = useMemo(() => shuffle(TRIVIA), []);
+  const { lang, t } = useLanguage();
+  const deck = useMemo(() => shuffleTrivia(TRIVIA_CARDS), []);
   const [stageIndex, setStageIndex] = useState(0);
   const [triviaIndex, setTriviaIndex] = useState(0);
   const [elapsedSec, setElapsedSec] = useState(0);
@@ -104,10 +29,15 @@ export const GenerationWaitExperience: React.FC<GenerationWaitExperienceProps> =
   const card = deck[triviaIndex % deck.length];
   const stage = LAB_STAGES[Math.min(stageIndex, LAB_STAGES.length - 1)];
 
+  const goNext = useCallback(() => {
+    setQuizGuess(null);
+    setTriviaIndex((i) => i + 1);
+  }, []);
+
   useEffect(() => {
     const stageTimer = window.setInterval(() => {
       setStageIndex((i) => Math.min(i + 1, LAB_STAGES.length - 1));
-    }, 4500);
+    }, STAGE_MS);
     const clock = window.setInterval(() => {
       setElapsedSec((s) => s + 1);
     }, 1000);
@@ -124,14 +54,33 @@ export const GenerationWaitExperience: React.FC<GenerationWaitExperienceProps> =
   useEffect(() => {
     const answered = quizGuess !== null;
     const advanceMs =
-      card.kind === 'quiz' && !answered ? 14000 : answered ? 4500 : 7000;
-    const t = window.setTimeout(() => {
-      setTriviaIndex((i) => i + 1);
-    }, advanceMs);
-    return () => window.clearTimeout(t);
-  }, [triviaIndex, quizGuess, card.kind]);
+      card.kind === 'quiz' && !answered
+        ? AUTO_QUIZ_IDLE_MS
+        : answered
+          ? AUTO_QUIZ_ANSWERED_MS
+          : AUTO_FACT_MS;
+    const timer = window.setTimeout(goNext, advanceMs);
+    return () => window.clearTimeout(timer);
+  }, [triviaIndex, quizGuess, card.kind, goNext]);
 
-  const childWord = gender === 'boy' ? 'son' : 'daughter';
+  const childWord =
+    lang === 'es'
+      ? gender === 'boy'
+        ? 'hijo'
+        : 'hija'
+      : gender === 'boy'
+        ? 'son'
+        : 'daughter';
+
+  const waitUsually =
+    lang === 'es'
+      ? `Pintando la cara de tu futur${gender === 'boy' ? 'o' : 'a'} ${childWord} — suele tardar 20–45 segundos.`
+      : `Painting your future ${childWord}'s face — usually 20–45 seconds.`;
+
+  const elapsedLabel =
+    elapsedSec < 60
+      ? `0:${elapsedSec.toString().padStart(2, '0')}`
+      : `${Math.floor(elapsedSec / 60)}:${(elapsedSec % 60).toString().padStart(2, '0')}`;
 
   return (
     <div className="w-full max-w-[380px] mx-auto space-y-5 animate-fade-in px-1">
@@ -143,7 +92,13 @@ export const GenerationWaitExperience: React.FC<GenerationWaitExperienceProps> =
               : 'bg-emerald-50 text-emerald-600 border-emerald-100'
           }`}
         >
-          {mode === 'creator' ? 'Creator Access' : 'Payment Verified'}
+          {mode === 'creator'
+            ? lang === 'es'
+              ? 'Acceso creador'
+              : 'Creator Access'
+            : lang === 'es'
+              ? 'Pago verificado'
+              : 'Payment Verified'}
         </div>
 
         <div className="relative mx-auto w-24 h-24">
@@ -156,17 +111,19 @@ export const GenerationWaitExperience: React.FC<GenerationWaitExperienceProps> =
         </div>
 
         <div className="space-y-1">
-          <h3 className="text-lg font-extrabold text-slate-800 leading-snug">{stage.label}</h3>
+          <h3 className="text-lg font-extrabold text-slate-800 leading-snug">
+            {stage.label[lang]}
+          </h3>
           <p className="text-slate-400 text-xs">
-            Painting your future {childWord}&apos;s face — usually 20–45 seconds. Keep this tab open.
+            {waitUsually} {t.waitKeepOpen}
           </p>
           <p className="text-[11px] font-semibold text-slate-300 tabular-nums">
-            {elapsedSec < 10 ? `0:${elapsedSec.toString().padStart(2, '0')}` : `${elapsedSec}s`} elapsed
+            {elapsedLabel} {t.waitElapsed}
           </p>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 min-h-[148px] flex flex-col justify-between">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 min-h-[168px] flex flex-col justify-between gap-3">
         {card.kind === 'fact' ? (
           <div className="space-y-2 text-left">
             <div className="flex items-center gap-2">
@@ -174,11 +131,11 @@ export const GenerationWaitExperience: React.FC<GenerationWaitExperienceProps> =
                 {card.emoji}
               </span>
               <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-400">
-                Genetics trivia
+                {t.waitTrivia}
               </span>
             </div>
-            <h4 className="text-sm font-bold text-slate-800">{card.title}</h4>
-            <p className="text-xs text-slate-500 leading-relaxed">{card.body}</p>
+            <h4 className="text-sm font-bold text-slate-800">{card.title[lang]}</h4>
+            <p className="text-xs text-slate-500 leading-relaxed">{card.body[lang]}</p>
           </div>
         ) : (
           <div className="space-y-3 text-left">
@@ -187,10 +144,10 @@ export const GenerationWaitExperience: React.FC<GenerationWaitExperienceProps> =
                 {card.emoji}
               </span>
               <span className="text-[10px] font-bold uppercase tracking-wider text-pink-400">
-                Quick quiz
+                {t.waitQuiz}
               </span>
             </div>
-            <p className="text-sm font-bold text-slate-800 leading-snug">{card.question}</p>
+            <p className="text-sm font-bold text-slate-800 leading-snug">{card.question[lang]}</p>
             {quizGuess === null ? (
               <div className="flex gap-2">
                 <button
@@ -198,14 +155,14 @@ export const GenerationWaitExperience: React.FC<GenerationWaitExperienceProps> =
                   onClick={() => setQuizGuess(true)}
                   className="flex-1 py-2 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-100 transition-colors"
                 >
-                  True
+                  {t.waitTrue}
                 </button>
                 <button
                   type="button"
                   onClick={() => setQuizGuess(false)}
                   className="flex-1 py-2 rounded-xl text-xs font-bold bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100 transition-colors"
                 >
-                  False
+                  {t.waitFalse}
                 </button>
               </div>
             ) : (
@@ -217,23 +174,25 @@ export const GenerationWaitExperience: React.FC<GenerationWaitExperienceProps> =
                 }`}
               >
                 <span className="font-bold">
-                  {quizGuess === card.answer ? 'Nice!' : 'Almost!'}{' '}
+                  {quizGuess === card.answer ? t.waitNice : t.waitAlmost}{' '}
                 </span>
-                {card.reveal}
+                {card.reveal[lang]}
               </div>
             )}
           </div>
         )}
 
-        <div className="flex justify-center gap-1.5 pt-3">
-          {deck.slice(0, 5).map((_, i) => (
-            <span
-              key={i}
-              className={`h-1.5 w-1.5 rounded-full transition-colors ${
-                i === triviaIndex % Math.min(5, deck.length) ? 'bg-indigo-400' : 'bg-slate-200'
-              }`}
-            />
-          ))}
+        <div className="flex items-center justify-between gap-3 pt-1">
+          <span className="text-[10px] font-semibold text-slate-300 tabular-nums">
+            {(triviaIndex % deck.length) + 1}/{deck.length}
+          </span>
+          <button
+            type="button"
+            onClick={goNext}
+            className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 transition-colors"
+          >
+            {quizGuess !== null || card.kind === 'fact' ? t.waitNext : t.waitSkip} →
+          </button>
         </div>
       </div>
 
@@ -242,7 +201,7 @@ export const GenerationWaitExperience: React.FC<GenerationWaitExperienceProps> =
           <div className="h-full w-1/3 rounded-full bg-gradient-to-r from-indigo-400 via-sky-400 to-pink-400 indeterminate-bar" />
         </div>
         <p className="text-center text-[10px] font-semibold uppercase tracking-wider text-slate-300">
-          Combining DNA traits…
+          {t.waitCombining}
         </p>
       </div>
 
