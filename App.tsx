@@ -125,7 +125,13 @@ const App: React.FC = () => {
   }) => {
     if (opts.paymentToken) rememberPaymentToken(opts.paymentToken);
     setGenState({ isLoading: true, resultImage: null, error: null });
-    setCheckoutOpen(true);
+    // Creator bypass must not open PaymentCheckout. The right panel uses
+    // `creatorMode && genState.isLoading` for the generating spinner instead.
+    if (opts.creatorBypass) {
+      setCheckoutOpen(false);
+    } else {
+      setCheckoutOpen(true);
+    }
 
     const { dad, mom } = resolveParents();
     if (!dad || !mom) {
@@ -156,15 +162,15 @@ const App: React.FC = () => {
       setGenState({ isLoading: false, resultImage: resultBase64, error: null });
       setCheckoutOpen(false);
     } catch (err: any) {
+      const msg = String(err?.message || 'Failed to generate image. Please try again.');
       setGenState({
         isLoading: false,
         resultImage: null,
-        error: err?.message || 'Failed to generate image. Please try again.',
+        error: opts.creatorBypass ? `Creator generate failed: ${msg}` : msg,
       });
       setCheckoutOpen(false);
       // Keep token on transient failures when server has not consumed it yet.
       // If the server responds "already used", clear so user can pay again.
-      const msg = String(err?.message || '');
       if (/already used|already been used/i.test(msg)) {
         rememberPaymentToken(null);
       }
@@ -405,8 +411,12 @@ const App: React.FC = () => {
                 <div className="w-full md:w-auto">
                   <Button
                     onClick={handleGenerateClick}
-                    isLoading={genState.isLoading && !checkoutOpen}
-                    disabled={!dadImage || !momImage || checkoutOpen}
+                    isLoading={
+                      genState.isLoading && !(checkoutOpen && !creatorMode)
+                    }
+                    disabled={
+                      !dadImage || !momImage || checkoutOpen || genState.isLoading
+                    }
                     className="w-full md:min-w-[220px]"
                   >
                     {genState.isLoading
@@ -496,7 +506,7 @@ const App: React.FC = () => {
                     </button>
                   </div>
                 </div>
-              ) : checkoutOpen ? (
+              ) : checkoutOpen || (creatorMode && genState.isLoading) ? (
                 <div className="w-full h-full flex flex-col items-center justify-center py-6">
                   {verifying ? (
                     <div className="text-center space-y-4 max-w-[350px]">
@@ -508,18 +518,37 @@ const App: React.FC = () => {
                         Validating your Checkout session with Stripe…
                       </p>
                     </div>
-                  ) : paymentToken && genState.isLoading ? (
+                  ) : (paymentToken || creatorMode) && genState.isLoading ? (
                     <div className="text-center space-y-4 max-w-[350px]">
                       <div className="relative w-20 h-20 mx-auto">
                         <div className="absolute inset-0 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
                       </div>
-                      <div className="inline-block px-3 py-1 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-full text-[10px] font-bold uppercase tracking-wider">
-                        Payment Verified
+                      <div
+                        className={`inline-block px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                          creatorMode
+                            ? 'bg-amber-50 text-amber-700 border-amber-100'
+                            : 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                        }`}
+                      >
+                        {creatorMode ? 'Creator Access' : 'Payment Verified'}
                       </div>
                       <h3 className="text-lg font-extrabold text-slate-800">Combining DNA Traits</h3>
                       <p className="text-slate-400 text-xs">
                         Rendering your future child&apos;s portrait. Please don&apos;t close this window.
                       </p>
+                    </div>
+                  ) : creatorMode ? (
+                    // Never fall through to Stripe checkout while creator access is active.
+                    <div className="text-center space-y-6 max-w-xs">
+                      <div className="relative mx-auto w-32 h-32 bg-amber-50 rounded-full flex items-center justify-center">
+                        <span className="text-5xl opacity-50">✨</span>
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-slate-700 mb-2">Creator Mode</h3>
+                        <p className="text-slate-400 text-sm leading-relaxed">
+                          Upload both parents photos and hit generate — checkout is skipped.
+                        </p>
+                      </div>
                     </div>
                   ) : (
                     <PaymentCheckout
