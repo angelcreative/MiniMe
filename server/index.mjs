@@ -90,6 +90,10 @@ function verifyToken(token) {
   }
 }
 
+function sessionAlreadyConsumed(session) {
+  return String(session?.metadata?.minime_consumed || '') === '1';
+}
+
 function issuePaymentToken(sessionId) {
   pruneConsumed(consumedSessions);
   pruneConsumed(consumedTokens);
@@ -113,6 +117,19 @@ function consumePaymentToken(payload) {
   consumedSessions.set(payload.sid, Date.now());
   consumedTokens.set(payload.jti, Date.now());
   return true;
+}
+
+/** Durable one-use mark on Stripe so redeploys cannot revive a spent payment. */
+async function markSessionConsumedOnStripe(sessionId) {
+  if (!stripe || !sessionId) return;
+  await stripe.checkout.sessions.update(sessionId, {
+    metadata: {
+      product: 'minime-generation',
+      generations: '1',
+      minime_consumed: '1',
+      minime_consumed_at: new Date().toISOString(),
+    },
+  });
 }
 
 const CHILD_PROMPT = (gender) => `
@@ -244,6 +261,14 @@ const generateLimiter = rateLimit({
   message: { success: false, message: 'Too many generation attempts. Try again later.' },
 });
 
+const verifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many verification attempts. Try again later.' },
+});
+
 app.get('/api/health', (_req, res) => {
   res.json({
     success: true,
@@ -305,7 +330,7 @@ app.post('/api/create-checkout-session', checkoutLimiter, async (req, res) => {
   }
 });
 
-app.get('/api/verify-session', async (req, res) => {
+app.get('/api/verify-session', verifyLimiter, async (req, res) => {
   try {
     if (!stripe || !tokenSecret) {
       return res.status(503).json({
@@ -343,7 +368,8 @@ app.get('/api/verify-session', async (req, res) => {
       });
     }
 
-    if (consumedSessions.has(sessionId)) {
+    if (sessionAlreadyConsumed(session) || consumedSessions.has(sessionId)) {
+      consumedSessions.set(sessionId, Date.now());
       return res.status(409).json({
         success: false,
         message: 'This payment has already been used for a generation.',
@@ -358,6 +384,13 @@ app.get('/api/verify-session', async (req, res) => {
     return res.json({ success: true, paymentToken: issued.token });
   } catch (err) {
     console.error('verify-session', err);
+    const msg = String(err?.message || '');
+    if (/No such checkout\.session/i.test(msg)) {
+      return res.status(404).json({
+        success: false,
+        message: 'Unknown or invalid Stripe Checkout session.',
+      });
+    }
     return res.status(500).json({
       success: false,
       message: err?.message || 'Failed to verify Stripe session.',
@@ -401,7 +434,7 @@ app.post('/api/generate-baby', generateLimiter, async (req, res) => {
         });
       }
 
-      // Re-check Stripe in case token was issued then refunded/expired edge cases.
+      // Re-check Stripe: still paid, exact fee, and not already consumed (survives redeploys).
       if (stripe) {
         try {
           const session = await stripe.checkout.sessions.retrieve(payload.sid);
@@ -421,6 +454,14 @@ app.post('/api/generate-baby', generateLimiter, async (req, res) => {
               message: 'Access Denied: paid amount does not match the required fee.',
             });
           }
+          if (sessionAlreadyConsumed(session)) {
+            consumedSessions.set(payload.sid, Date.now());
+            consumedTokens.set(payload.jti, Date.now());
+            return res.status(409).json({
+              success: false,
+              message: 'This payment token was already used or is in progress.',
+            });
+          }
         } catch (e) {
           console.warn('stripe re-check failed', e?.message);
           return res.status(403).json({
@@ -428,6 +469,11 @@ app.post('/api/generate-baby', generateLimiter, async (req, res) => {
             message: 'Access Denied: could not re-validate payment.',
           });
         }
+      } else {
+        return res.status(503).json({
+          success: false,
+          message: 'Stripe is not configured on the server.',
+        });
       }
     }
 
@@ -463,6 +509,12 @@ app.post('/api/generate-baby', generateLimiter, async (req, res) => {
             success: false,
             message: 'This payment token was already used.',
           });
+        }
+        try {
+          await markSessionConsumedOnStripe(payload.sid);
+        } catch (e) {
+          // Memory mark already applied; Stripe mark is best-effort durable backup.
+          console.warn('stripe consume mark failed', e?.message);
         }
       }
 
