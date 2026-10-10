@@ -31,7 +31,7 @@ export const DemoExample: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 items-stretch">
         {/* Father */}
         <figure className="flex flex-col gap-3">
-          <div className="relative aspect-[4/5] rounded-3xl overflow-hidden bg-slate-100 shadow-sm border border-slate-100">
+          <div className="relative aspect-square rounded-3xl overflow-hidden bg-slate-100 shadow-sm border border-slate-100">
             <img
               src="/demo/father.jpg"
               alt="Example father portrait"
@@ -52,7 +52,7 @@ export const DemoExample: React.FC = () => {
 
         {/* Mother */}
         <figure className="flex flex-col gap-3">
-          <div className="relative aspect-[4/5] rounded-3xl overflow-hidden bg-slate-100 shadow-sm border border-slate-100">
+          <div className="relative aspect-square rounded-3xl overflow-hidden bg-slate-100 shadow-sm border border-slate-100">
             <img
               src="/demo/mother.jpg"
               alt="Example mother portrait"
@@ -73,7 +73,7 @@ export const DemoExample: React.FC = () => {
 
         {/* Predicted child */}
         <div className="flex flex-col gap-3">
-          <div className="relative aspect-[4/5] rounded-3xl overflow-hidden bg-slate-100 shadow-md border border-indigo-100">
+          <div className="relative aspect-square rounded-3xl overflow-hidden bg-slate-100 shadow-md border border-indigo-100">
             <img
               src={tab === 'girl' ? '/demo/child-girl.jpg' : '/demo/child-boy.jpg'}
               alt={`Example predicted ${tab} child`}
