@@ -2,12 +2,8 @@ import React, { useRef, useState } from 'react';
 import { UploadedImage } from '../types';
 import { CameraCapture } from './CameraCapture';
 import { compressForStorage } from '../services/draftStorage';
-import {
-  ACCEPTED_FORMATS_HINT,
-  HEIC_ERROR,
-  tryConvertHeicToJpeg,
-  validateParentPhoto,
-} from '../services/imageFormats';
+import { tryConvertHeicToJpeg, validateParentPhoto } from '../services/imageFormats';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface ImageUploaderProps {
   label: string;
@@ -26,6 +22,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
   onRemove,
   icon 
 }) => {
+  const { t } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [formatError, setFormatError] = useState<string | null>(null);
@@ -68,10 +65,12 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
           await emitImage(jpegFile, converted.dataUrl, converted.mimeType);
           return;
         }
-        setFormatError(HEIC_ERROR);
+        setFormatError(t.heicError);
         return;
       }
-      setFormatError(validated.error);
+      setFormatError(
+        /too large/i.test(validated.error) ? t.fileTooLarge : t.unsupportedFormat
+      );
       return;
     }
 
@@ -82,7 +81,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
       void emitImage(file, result, mimeType);
     };
     reader.onerror = () => {
-      setFormatError('Could not read that photo. Try JPG, PNG, or WebP.');
+      setFormatError(t.readPhotoFail);
     };
     reader.readAsDataURL(file);
   };
@@ -159,14 +158,14 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
                   className="flex items-center gap-2 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-xs font-bold rounded-xl transition-colors"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                  Upload
+                  {t.upload}
                 </button>
                 <button
                   onClick={() => setShowCamera(true)}
                   className="flex items-center gap-2 px-4 py-2 bg-pink-50 hover:bg-pink-100 text-pink-600 text-xs font-bold rounded-xl transition-colors"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                  Camera
+                  {t.camera}
                 </button>
               </div>
             </div>
@@ -174,7 +173,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
         </div>
 
         <p className="mt-2 text-center text-[11px] text-slate-400 font-medium leading-snug px-2">
-          {ACCEPTED_FORMATS_HINT}
+          {t.formatsHint}
         </p>
         {formatError && (
           <p

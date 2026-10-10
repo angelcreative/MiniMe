@@ -22,9 +22,8 @@ import {
 } from './services/draftStorage';
 import { DemoExample } from './components/DemoExample';
 import { GenerationWaitExperience } from './components/GenerationWaitExperience';
-
-const PHOTOS_MISSING_PAID =
-  'Payment already verified — please re-upload both parent photos, then click generate. You will not be charged again.';
+import { LanguageSwitcher } from './components/LanguageSwitcher';
+import { useLanguage } from './i18n/LanguageContext';
 
 const CREATOR_ACCESS_KEY = 'minime_creator_access';
 
@@ -34,7 +33,6 @@ const readCreatorAccess = (): string | null => {
     const fromUrl = params.get('access');
     if (fromUrl && fromUrl.length >= 16) {
       sessionStorage.setItem(CREATOR_ACCESS_KEY, fromUrl);
-      // Strip secret from the address bar so it is less likely to be shared/screenshot.
       params.delete('access');
       const qs = params.toString();
       window.history.replaceState(
@@ -68,6 +66,7 @@ const detectCurrency = (): CheckoutCurrency => {
 };
 
 const App: React.FC = () => {
+  const { t } = useLanguage();
   const [dadImage, setDadImage] = useState<UploadedImage | null>(() => loadDraftDad());
   const [momImage, setMomImage] = useState<UploadedImage | null>(() => loadDraftMom());
   const [gender, setGender] = useState<ChildGender>(() => loadDraftGender());
@@ -126,8 +125,6 @@ const App: React.FC = () => {
   }) => {
     if (opts.paymentToken) rememberPaymentToken(opts.paymentToken);
     setGenState({ isLoading: true, resultImage: null, error: null });
-    // Creator bypass must not open PaymentCheckout. The right panel uses
-    // `creatorMode && genState.isLoading` for the generating spinner instead.
     if (opts.creatorBypass) {
       setCheckoutOpen(false);
     } else {
@@ -139,12 +136,9 @@ const App: React.FC = () => {
       setGenState({
         isLoading: false,
         resultImage: null,
-        error: opts.creatorBypass
-          ? 'Please upload both parent photos, then click generate.'
-          : PHOTOS_MISSING_PAID,
+        error: opts.creatorBypass ? t.photosMissingCreator : t.photosMissingPaid,
       });
       setCheckoutOpen(false);
-      // Keep paymentToken so a second generate (after re-upload) skips checkout.
       return;
     }
 
@@ -170,8 +164,6 @@ const App: React.FC = () => {
         error: opts.creatorBypass ? `Creator generate failed: ${msg}` : msg,
       });
       setCheckoutOpen(false);
-      // Keep token on transient failures when server has not consumed it yet.
-      // If the server responds "already used", clear so user can pay again.
       if (/already used|already been used/i.test(msg)) {
         rememberPaymentToken(null);
       }
@@ -191,7 +183,6 @@ const App: React.FC = () => {
         setVerifying(true);
         setCheckoutOpen(true);
         setGenState({ isLoading: false, resultImage: null, error: null });
-        // Restore drafts before generate (Stripe may have returned in a new tab).
         const dad = loadDraftDad();
         const mom = loadDraftMom();
         if (dad) setDadImage(dad);
@@ -211,11 +202,7 @@ const App: React.FC = () => {
           setGenState({
             isLoading: false,
             resultImage: null,
-            error:
-              e?.message ||
-              (token
-                ? PHOTOS_MISSING_PAID
-                : 'Failed to verify Stripe payment.'),
+            error: e?.message || (token ? t.photosMissingPaid : t.verifyFailed),
           });
         }
       })();
@@ -223,15 +210,14 @@ const App: React.FC = () => {
       window.history.replaceState({}, document.title, window.location.pathname);
       setGenState((s) => ({
         ...s,
-        error: 'Payment was cancelled. Please try again.',
+        error: t.paymentCancelled,
       }));
     } else {
-      // Returning visitor with a saved unpaid draft token from a prior paid return.
       const existing = loadDraftPaymentToken();
       if (existing && (!loadDraftDad() || !loadDraftMom())) {
         setGenState((s) => ({
           ...s,
-          error: PHOTOS_MISSING_PAID,
+          error: t.photosMissingPaid,
         }));
       }
     }
@@ -245,7 +231,7 @@ const App: React.FC = () => {
         setGenState({
           isLoading: false,
           resultImage: null,
-          error: PHOTOS_MISSING_PAID,
+          error: t.photosMissingPaid,
         });
       }
       return;
@@ -257,11 +243,9 @@ const App: React.FC = () => {
     }
     const token = paymentToken || loadDraftPaymentToken();
     if (token) {
-      // Already paid — generate without opening Stripe again.
       void runGeneration({ paymentToken: token });
       return;
     }
-    // Flush latest photos to storage before Stripe redirect / new tab.
     void (async () => {
       await saveDraftImage('dad', dad);
       await saveDraftImage('mom', mom);
@@ -307,12 +291,12 @@ const App: React.FC = () => {
 
       if (navigator.share) {
         await navigator.share({
-          title: 'My MiniMe AI Result',
-          text: 'Check out what our future kid might look like!',
+          title: t.shareTitle,
+          text: t.shareText,
           files: [file],
         });
       } else {
-        alert('Sharing is not supported on this browser. Please use the Download button.');
+        alert(t.shareUnsupported);
       }
     } catch (error) {
       console.error('Error sharing:', error);
@@ -320,13 +304,13 @@ const App: React.FC = () => {
   };
 
   const DadIcon = (
-    <span className="text-7xl filter drop-shadow-sm grayscale-0" role="img" aria-label="Dad">
+    <span className="text-7xl filter drop-shadow-sm grayscale-0" role="img" aria-label={t.dadPhoto}>
       👨
     </span>
   );
 
   const MomIcon = (
-    <span className="text-7xl filter drop-shadow-sm grayscale-0" role="img" aria-label="Mom">
+    <span className="text-7xl filter drop-shadow-sm grayscale-0" role="img" aria-label={t.momPhoto}>
       👩
     </span>
   );
@@ -337,35 +321,38 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 md:p-8 selection:bg-indigo-100">
       <div className="w-full max-w-7xl mx-auto">
+        <div className="flex justify-end mb-4">
+          <LanguageSwitcher />
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
           <div className="lg:col-span-7 flex flex-col gap-8 order-2 lg:order-1">
             <header className="text-center lg:text-left space-y-2">
               <div className="inline-block px-4 py-1.5 bg-white rounded-full shadow-sm mb-2 border border-slate-100">
                 <span className="text-xs font-bold uppercase tracking-widest text-indigo-500">
-                  AI Baby Generator
+                  {t.badge}
                 </span>
               </div>
               <h1 className="text-4xl md:text-5xl font-bold text-slate-800 tracking-tight">
                 MiniMe <span className="text-indigo-500">AI</span>
               </h1>
               <p className="text-slate-500 font-medium text-sm md:text-base max-w-lg mx-auto lg:mx-0">
-                Upload photos of both parents and let our genetic AI predict your future child's
-                adorable face!
+                {t.tagline}
               </p>
             </header>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <ImageUploader
-                label="Dad's Photo"
-                subLabel="Upload a clear portrait"
+                label={t.dadPhoto}
+                subLabel={t.uploadPortrait}
                 image={dadImage}
                 onImageUpload={persistDad}
                 onRemove={() => persistDad(null)}
                 icon={DadIcon}
               />
               <ImageUploader
-                label="Mom's Photo"
-                subLabel="Upload a clear portrait"
+                label={t.momPhoto}
+                subLabel={t.uploadPortrait}
                 image={momImage}
                 onImageUpload={persistMom}
                 onRemove={() => persistMom(null)}
@@ -377,7 +364,7 @@ const App: React.FC = () => {
               <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                 <div className="flex flex-col items-center md:items-start gap-2">
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                    Select Gender
+                    {t.selectGender}
                   </span>
                   <div className="flex p-1 bg-slate-100 rounded-full">
                     <button
@@ -391,7 +378,7 @@ const App: React.FC = () => {
                           }
                         `}
                     >
-                      <span className="text-lg">👦</span> Boy
+                      <span className="text-lg">👦</span> {t.boy}
                     </button>
                     <button
                       onClick={() => persistGender('girl')}
@@ -404,7 +391,7 @@ const App: React.FC = () => {
                           }
                         `}
                     >
-                      <span className="text-lg">👧</span> Girl
+                      <span className="text-lg">👧</span> {t.girl}
                     </button>
                   </div>
                 </div>
@@ -421,26 +408,27 @@ const App: React.FC = () => {
                     className="w-full md:min-w-[220px]"
                   >
                     {genState.isLoading
-                      ? `Creating Magic...`
+                      ? t.creatingMagic
                       : creatorMode
-                        ? `Generate (creator access)`
+                        ? t.generateCreator
                         : paidReady
-                          ? `Generate (payment verified)`
-                          : `Meet Your Future ${gender === 'boy' ? 'Son' : 'Daughter'}`}
+                          ? t.generatePaid
+                          : gender === 'boy'
+                            ? t.meetFutureSon
+                            : t.meetFutureDaughter}
                   </Button>
                 </div>
               </div>
 
               {creatorMode && !genState.resultImage && (
                 <p className="text-center text-amber-700 text-sm font-medium bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">
-                  Creator access active — Stripe checkout is skipped for this session.
+                  {t.creatorBanner}
                 </p>
               )}
 
               {paidReady && !creatorMode && !genState.resultImage && (
                 <p className="text-center text-emerald-600 text-sm font-medium bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-100">
-                  Payment verified. Upload both photos if needed, then click generate — you will not
-                  be charged again.
+                  {t.paidBanner}
                 </p>
               )}
 
@@ -472,16 +460,14 @@ const App: React.FC = () => {
                       className="w-full h-full object-cover"
                     />
                     <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-md px-4 py-1.5 rounded-full shadow-sm">
-                      <span className="text-xs font-bold text-slate-600">✨ AI Generated</span>
+                      <span className="text-xs font-bold text-slate-600">{t.aiGenerated}</span>
                     </div>
                   </div>
 
                   <div className="p-6 md:p-8 space-y-6 bg-white">
                     <div className="text-center">
-                      <h2 className="text-2xl font-bold text-slate-800 mb-1">Your MiniMe is Here!</h2>
-                      <p className="text-slate-500 text-sm">
-                        Based on genetic traits from both parents.
-                      </p>
+                      <h2 className="text-2xl font-bold text-slate-800 mb-1">{t.resultTitle}</h2>
+                      <p className="text-slate-500 text-sm">{t.resultSubtitle}</p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -489,13 +475,13 @@ const App: React.FC = () => {
                         onClick={handleDownload}
                         className="flex items-center justify-center gap-2 px-4 py-3 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold rounded-xl border border-slate-200 transition-colors"
                       >
-                        Download
+                        {t.download}
                       </button>
                       <button
                         onClick={handleShare}
                         className="flex items-center justify-center gap-2 px-4 py-3 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all"
                       >
-                        Share
+                        {t.share}
                       </button>
                     </div>
 
@@ -503,7 +489,7 @@ const App: React.FC = () => {
                       onClick={() => window.location.reload()}
                       className="w-full text-indigo-400 hover:text-indigo-600 text-xs font-bold uppercase tracking-wider py-2 transition-colors"
                     >
-                      Start Over
+                      {t.startOver}
                     </button>
                   </div>
                 </div>
@@ -514,10 +500,8 @@ const App: React.FC = () => {
                       <div className="relative w-20 h-20 mx-auto">
                         <div className="absolute inset-0 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
                       </div>
-                      <h3 className="text-lg font-extrabold text-slate-800">Verifying Stripe Payment</h3>
-                      <p className="text-slate-400 text-xs">
-                        Validating your Checkout session with Stripe…
-                      </p>
+                      <h3 className="text-lg font-extrabold text-slate-800">{t.verifyingTitle}</h3>
+                      <p className="text-slate-400 text-xs">{t.verifyingBody}</p>
                     </div>
                   ) : (paymentToken || creatorMode) && genState.isLoading ? (
                     <GenerationWaitExperience
@@ -525,16 +509,13 @@ const App: React.FC = () => {
                       gender={gender}
                     />
                   ) : creatorMode ? (
-                    // Never fall through to Stripe checkout while creator access is active.
                     <div className="text-center space-y-6 max-w-xs">
                       <div className="relative mx-auto w-32 h-32 bg-amber-50 rounded-full flex items-center justify-center">
                         <span className="text-5xl opacity-50">✨</span>
                       </div>
                       <div>
-                        <h3 className="text-xl font-bold text-slate-700 mb-2">Creator Mode</h3>
-                        <p className="text-slate-400 text-sm leading-relaxed">
-                          Upload both parents photos and hit generate — checkout is skipped.
-                        </p>
+                        <h3 className="text-xl font-bold text-slate-700 mb-2">{t.creatorModeTitle}</h3>
+                        <p className="text-slate-400 text-sm leading-relaxed">{t.creatorModeBody}</p>
                       </div>
                     </div>
                   ) : (
@@ -562,10 +543,8 @@ const App: React.FC = () => {
                     <span className="text-5xl opacity-50">👶</span>
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-slate-700 mb-2">Ready to Create</h3>
-                    <p className="text-slate-400 text-sm leading-relaxed">
-                      Upload both parents photos and hit generate to unlock the secure checkout.
-                    </p>
+                    <h3 className="text-xl font-bold text-slate-700 mb-2">{t.readyTitle}</h3>
+                    <p className="text-slate-400 text-sm leading-relaxed">{t.readyBody}</p>
                   </div>
                 </div>
               )}
