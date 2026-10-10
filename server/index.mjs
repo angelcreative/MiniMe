@@ -22,6 +22,7 @@ const OPENAI_IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1';
 
 const stripeSecret = process.env.STRIPE_SECRET_KEY || '';
 const openaiKey = process.env.OPENAI_API_KEY || '';
+const creatorBypassSecret = process.env.CREATOR_BYPASS_SECRET || '';
 const tokenSecret =
   process.env.PAYMENT_TOKEN_SECRET ||
   process.env.STRIPE_SECRET_KEY ||
@@ -31,6 +32,16 @@ if (!tokenSecret) {
   console.warn(
     '[minime] PAYMENT_TOKEN_SECRET / STRIPE_SECRET_KEY missing — tokens cannot be issued safely.'
   );
+}
+
+function isValidCreatorBypass(provided) {
+  if (!creatorBypassSecret || typeof provided !== 'string' || !provided) {
+    return false;
+  }
+  const a = Buffer.from(provided);
+  const b = Buffer.from(creatorBypassSecret);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
 }
 
 const stripe = stripeSecret ? new Stripe(stripeSecret) : null;
@@ -192,6 +203,7 @@ app.get('/api/health', (_req, res) => {
     openai: Boolean(openaiKey),
     imageModel: OPENAI_IMAGE_MODEL,
     tokenSigner: Boolean(tokenSecret),
+    creatorBypass: Boolean(creatorBypassSecret),
   });
 });
 
@@ -314,54 +326,60 @@ app.post('/api/generate-baby', generateLimiter, async (req, res) => {
       momMimeType,
       gender,
       paymentToken,
+      creatorBypass,
     } = req.body || {};
 
-    const payload = verifyToken(paymentToken);
-    if (!payload) {
-      return res.status(403).json({
-        success: false,
-        message:
-          'Access Denied: Please complete payment to authorize AI generation.',
-      });
-    }
+    const bypassOk = isValidCreatorBypass(creatorBypass);
+    let payload = null;
 
-    if (
-      consumedSessions.has(payload.sid) ||
-      consumedTokens.has(payload.jti) ||
-      inflightTokens.has(payload.jti)
-    ) {
-      return res.status(409).json({
-        success: false,
-        message: 'This payment token was already used or is in progress.',
-      });
-    }
-
-    // Re-check Stripe in case token was issued then refunded/expired edge cases.
-    if (stripe) {
-      try {
-        const session = await stripe.checkout.sessions.retrieve(payload.sid);
-        if (session.payment_status !== 'paid') {
-          return res.status(403).json({
-            success: false,
-            message: 'Access Denied: payment is no longer valid.',
-          });
-        }
-        const expected = priceForCurrency(session.currency);
-        if (
-          typeof session.amount_total !== 'number' ||
-          session.amount_total !== expected.unitAmount
-        ) {
-          return res.status(403).json({
-            success: false,
-            message: 'Access Denied: paid amount does not match the required fee.',
-          });
-        }
-      } catch (e) {
-        console.warn('stripe re-check failed', e?.message);
+    if (!bypassOk) {
+      payload = verifyToken(paymentToken);
+      if (!payload) {
         return res.status(403).json({
           success: false,
-          message: 'Access Denied: could not re-validate payment.',
+          message:
+            'Access Denied: Please complete payment to authorize AI generation.',
         });
+      }
+
+      if (
+        consumedSessions.has(payload.sid) ||
+        consumedTokens.has(payload.jti) ||
+        inflightTokens.has(payload.jti)
+      ) {
+        return res.status(409).json({
+          success: false,
+          message: 'This payment token was already used or is in progress.',
+        });
+      }
+
+      // Re-check Stripe in case token was issued then refunded/expired edge cases.
+      if (stripe) {
+        try {
+          const session = await stripe.checkout.sessions.retrieve(payload.sid);
+          if (session.payment_status !== 'paid') {
+            return res.status(403).json({
+              success: false,
+              message: 'Access Denied: payment is no longer valid.',
+            });
+          }
+          const expected = priceForCurrency(session.currency);
+          if (
+            typeof session.amount_total !== 'number' ||
+            session.amount_total !== expected.unitAmount
+          ) {
+            return res.status(403).json({
+              success: false,
+              message: 'Access Denied: paid amount does not match the required fee.',
+            });
+          }
+        } catch (e) {
+          console.warn('stripe re-check failed', e?.message);
+          return res.status(403).json({
+            success: false,
+            message: 'Access Denied: could not re-validate payment.',
+          });
+        }
       }
     }
 
@@ -373,7 +391,14 @@ app.post('/api/generate-baby', generateLimiter, async (req, res) => {
     }
 
     const g = gender === 'boy' ? 'boy' : 'girl';
-    inflightTokens.add(payload.jti);
+    const lockKey = bypassOk ? `bypass:${creatorBypass.slice(0, 8)}` : payload.jti;
+    if (inflightTokens.has(lockKey)) {
+      return res.status(409).json({
+        success: false,
+        message: 'A generation is already in progress. Please wait.',
+      });
+    }
+    inflightTokens.add(lockKey);
     try {
       const resultImage = await generateWithOpenAI({
         dadBase64,
@@ -383,17 +408,19 @@ app.post('/api/generate-baby', generateLimiter, async (req, res) => {
         gender: g,
       });
 
-      // Only burn the payment after a successful image (failed AI calls can retry).
-      if (!consumePaymentToken(payload)) {
-        return res.status(409).json({
-          success: false,
-          message: 'This payment token was already used.',
-        });
+      // Paid flow: burn token only after success. Creator bypass is not single-use.
+      if (!bypassOk) {
+        if (!consumePaymentToken(payload)) {
+          return res.status(409).json({
+            success: false,
+            message: 'This payment token was already used.',
+          });
+        }
       }
 
-      return res.json({ success: true, resultImage });
+      return res.json({ success: true, resultImage, creator: bypassOk || undefined });
     } finally {
-      inflightTokens.delete(payload.jti);
+      inflightTokens.delete(lockKey);
     }
   } catch (err) {
     console.error('generate-baby', err);

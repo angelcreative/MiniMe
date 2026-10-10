@@ -4,9 +4,9 @@ type DemoTab = 'boy' | 'girl';
 
 const TRAITS: Record<DemoTab, string> = {
   girl:
-    "Inherits the mother's signature voluminous curls, along with the father's nose shape, full lips, and deep focused gaze.",
+    "Inherits the mother's dark wavy hair and soft smile, along with the father's warm gaze and facial structure.",
   boy:
-    "Inherits the father's warm gaze and nose shape, with the mother's expressive eyes and soft facial structure.",
+    "Inherits the father's dark hair and warm gaze, with the mother's expressive eyes and gentle features.",
 };
 
 /**
@@ -45,7 +45,7 @@ export const DemoExample: React.FC = () => {
           <figcaption className="px-1">
             <p className="text-sm font-bold text-slate-700">Father&apos;s Photo</p>
             <p className="text-xs text-slate-400 mt-0.5">
-              Mediterranean features, defined beard, and warm gaze
+              Mediterranean / Latino features, dark hair, warm gaze
             </p>
           </figcaption>
         </figure>
@@ -66,7 +66,7 @@ export const DemoExample: React.FC = () => {
           <figcaption className="px-1">
             <p className="text-sm font-bold text-slate-700">Mother&apos;s Photo</p>
             <p className="text-xs text-slate-400 mt-0.5">
-              Voluminous curly hair, joyful smile, and expressive eyes
+              Mediterranean / Latina features, dark wavy hair, soft smile
             </p>
           </figcaption>
         </figure>

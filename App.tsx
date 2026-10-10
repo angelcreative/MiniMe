@@ -25,6 +25,30 @@ import { DemoExample } from './components/DemoExample';
 const PHOTOS_MISSING_PAID =
   'Payment already verified — please re-upload both parent photos, then click generate. You will not be charged again.';
 
+const CREATOR_ACCESS_KEY = 'minime_creator_access';
+
+const readCreatorAccess = (): string | null => {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const fromUrl = params.get('access');
+    if (fromUrl && fromUrl.length >= 16) {
+      sessionStorage.setItem(CREATOR_ACCESS_KEY, fromUrl);
+      // Strip secret from the address bar so it is less likely to be shared/screenshot.
+      params.delete('access');
+      const qs = params.toString();
+      window.history.replaceState(
+        {},
+        document.title,
+        `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`
+      );
+      return fromUrl;
+    }
+    return sessionStorage.getItem(CREATOR_ACCESS_KEY);
+  } catch {
+    return null;
+  }
+};
+
 const detectCurrency = (): CheckoutCurrency => {
   try {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
@@ -51,6 +75,9 @@ const App: React.FC = () => {
   const [verifying, setVerifying] = useState(false);
   const [paymentToken, setPaymentToken] = useState<string | null>(() =>
     loadDraftPaymentToken()
+  );
+  const [creatorAccess, setCreatorAccess] = useState<string | null>(() =>
+    typeof window !== 'undefined' ? readCreatorAccess() : null
   );
   const [genState, setGenState] = useState<GenerationState>({
     isLoading: false,
@@ -92,8 +119,11 @@ const App: React.FC = () => {
     return { dad, mom };
   };
 
-  const runGeneration = async (token: string) => {
-    rememberPaymentToken(token);
+  const runGeneration = async (opts: {
+    paymentToken?: string;
+    creatorBypass?: string;
+  }) => {
+    if (opts.paymentToken) rememberPaymentToken(opts.paymentToken);
     setGenState({ isLoading: true, resultImage: null, error: null });
     setCheckoutOpen(true);
 
@@ -102,7 +132,9 @@ const App: React.FC = () => {
       setGenState({
         isLoading: false,
         resultImage: null,
-        error: PHOTOS_MISSING_PAID,
+        error: opts.creatorBypass
+          ? 'Please upload both parent photos, then click generate.'
+          : PHOTOS_MISSING_PAID,
       });
       setCheckoutOpen(false);
       // Keep paymentToken so a second generate (after re-upload) skips checkout.
@@ -116,10 +148,11 @@ const App: React.FC = () => {
         momBase64: mom.base64,
         momMimeType: mom.mimeType,
         gender: loadDraftGender() || gender,
-        paymentToken: token,
+        paymentToken: opts.paymentToken,
+        creatorBypass: opts.creatorBypass,
       });
       clearDraftAfterSuccess();
-      rememberPaymentToken(null);
+      if (!opts.creatorBypass) rememberPaymentToken(null);
       setGenState({ isLoading: false, resultImage: resultBase64, error: null });
       setCheckoutOpen(false);
     } catch (err: any) {
@@ -139,6 +172,9 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
+    const access = readCreatorAccess();
+    if (access) setCreatorAccess(access);
+
     const params = new URLSearchParams(window.location.search);
     const sessionId = params.get('session_id');
     const cancelled = params.get('payment_cancelled');
@@ -160,7 +196,7 @@ const App: React.FC = () => {
             throw new Error('Your payment could not be verified by Stripe.');
           }
           setVerifying(false);
-          await runGeneration(result.paymentToken);
+          await runGeneration({ paymentToken: result.paymentToken });
         } catch (e: any) {
           setVerifying(false);
           setCheckoutOpen(false);
@@ -207,10 +243,15 @@ const App: React.FC = () => {
       }
       return;
     }
+    const bypass = creatorAccess || readCreatorAccess();
+    if (bypass) {
+      void runGeneration({ creatorBypass: bypass });
+      return;
+    }
     const token = paymentToken || loadDraftPaymentToken();
     if (token) {
       // Already paid — generate without opening Stripe again.
-      void runGeneration(token);
+      void runGeneration({ paymentToken: token });
       return;
     }
     // Flush latest photos to storage before Stripe redirect / new tab.
@@ -284,6 +325,7 @@ const App: React.FC = () => {
   );
 
   const paidReady = Boolean(paymentToken);
+  const creatorMode = Boolean(creatorAccess);
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 md:p-8 selection:bg-indigo-100">
@@ -369,14 +411,22 @@ const App: React.FC = () => {
                   >
                     {genState.isLoading
                       ? `Creating Magic...`
-                      : paidReady
-                        ? `Generate (payment verified)`
-                        : `Meet Your Future ${gender === 'boy' ? 'Son' : 'Daughter'}`}
+                      : creatorMode
+                        ? `Generate (creator access)`
+                        : paidReady
+                          ? `Generate (payment verified)`
+                          : `Meet Your Future ${gender === 'boy' ? 'Son' : 'Daughter'}`}
                   </Button>
                 </div>
               </div>
 
-              {paidReady && !genState.resultImage && (
+              {creatorMode && !genState.resultImage && (
+                <p className="text-center text-amber-700 text-sm font-medium bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">
+                  Creator access active — Stripe checkout is skipped for this session.
+                </p>
+              )}
+
+              {paidReady && !creatorMode && !genState.resultImage && (
                 <p className="text-center text-emerald-600 text-sm font-medium bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-100">
                   Payment verified. Upload both photos if needed, then click generate — you will not
                   be charged again.
@@ -481,7 +531,7 @@ const App: React.FC = () => {
                         saveDraftGender(gender);
                       }}
                       onPaymentSuccess={(token) => {
-                        void runGeneration(token);
+                        void runGeneration({ paymentToken: token });
                       }}
                       onPaymentError={(msg) => {
                         setCheckoutOpen(false);
