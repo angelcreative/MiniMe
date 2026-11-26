@@ -19,6 +19,19 @@ const PRICE_USD_CENTS = Number(process.env.PRICE_USD_CENTS || 110); // $1.10
 const TOKEN_TTL_MS = Number(process.env.PAYMENT_TOKEN_TTL_MS || 15 * 60 * 1000);
 const APP_BASE_URL = (process.env.APP_BASE_URL || '').replace(/\/$/, '');
 const OPENAI_IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1';
+// Tried in order when the configured model isn't available to this API key.
+const IMAGE_MODEL_CANDIDATES = [
+  ...new Set([OPENAI_IMAGE_MODEL, 'gpt-image-1.5', 'gpt-image-1', 'gpt-image-1-mini']),
+];
+let workingImageModel = null;
+
+function isModelUnavailable(err) {
+  const msg = String(err?.message || '');
+  return (
+    err?.code === 'model_not_found' ||
+    /does not exist|model_not_found|not have access to (the )?model/i.test(msg)
+  );
+}
 
 const stripeSecret = process.env.STRIPE_SECRET_KEY || '';
 const openaiKey = process.env.OPENAI_API_KEY || '';
@@ -223,13 +236,32 @@ async function generateWithOpenAI({ dadBase64, dadMimeType, momBase64, momMimeTy
     type: momMime,
   });
 
-  const response = await openai.images.edit({
-    model: OPENAI_IMAGE_MODEL,
-    image: [dadFile, momFile],
-    prompt: CHILD_PROMPT(gender),
-    size: '1024x1024',
-    quality: 'high',
-  });
+  const models = workingImageModel
+    ? [workingImageModel, ...IMAGE_MODEL_CANDIDATES.filter((m) => m !== workingImageModel)]
+    : IMAGE_MODEL_CANDIDATES;
+  let response;
+  let lastErr;
+  for (const model of models) {
+    try {
+      response = await openai.images.edit({
+        model,
+        image: [dadFile, momFile],
+        prompt: CHILD_PROMPT(gender),
+        size: '1024x1024',
+        quality: 'high',
+      });
+      if (workingImageModel !== model) {
+        console.log(`[minime] image model in use: ${model}`);
+        workingImageModel = model;
+      }
+      break;
+    } catch (err) {
+      if (!isModelUnavailable(err)) throw err;
+      console.warn(`[minime] image model unavailable: ${model} (${err?.message})`);
+      lastErr = err;
+    }
+  }
+  if (!response) throw lastErr;
 
   const b64 = response.data?.[0]?.b64_json;
   if (!b64) {
@@ -274,7 +306,7 @@ app.get('/api/health', (_req, res) => {
     success: true,
     stripe: Boolean(stripe),
     openai: Boolean(openaiKey),
-    imageModel: OPENAI_IMAGE_MODEL,
+    imageModel: workingImageModel || OPENAI_IMAGE_MODEL,
     tokenSigner: Boolean(tokenSecret),
     creatorBypass: Boolean(creatorBypassSecret),
   });
