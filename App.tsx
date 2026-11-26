@@ -21,6 +21,7 @@ import {
   storedToUploaded,
 } from './services/draftStorage';
 import { ExampleTag } from './components/ExampleTag';
+import { HereditySamples } from './components/HereditySamples';
 import { GenerationWaitExperience } from './components/GenerationWaitExperience';
 import { LanguageSwitcher } from './components/LanguageSwitcher';
 import { ThemeToggle } from './components/ThemeToggle';
@@ -326,6 +327,8 @@ const App: React.FC = () => {
   const paidReady = Boolean(paymentToken);
   const creatorMode = Boolean(creatorAccess);
   const showFlow = checkoutOpen || (creatorMode && genState.isLoading);
+  const parentsReady = Boolean(dadImage && momImage);
+  const exampleChild = gender === 'girl' ? '/demo/child-girl.jpg' : '/demo/child-boy.jpg';
 
   const ctaLabel = genState.isLoading
     ? t.creatingMagic
@@ -466,11 +469,26 @@ const App: React.FC = () => {
                   <div className="relative aspect-square rounded-inner overflow-hidden bg-subtle">
                     <img
                       key={gender}
-                      src={gender === 'girl' ? '/demo/child-girl.jpg' : '/demo/child-boy.jpg'}
+                      src={exampleChild}
                       alt=""
                       className="w-full h-full object-cover enter"
                     />
-                    <ExampleTag />
+                    {/* Blurred copy cross-fades in (opacity only) once both photos are in. */}
+                    <img
+                      src={exampleChild}
+                      alt=""
+                      aria-hidden
+                      className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl"
+                      style={{
+                        opacity: parentsReady ? 1 : 0,
+                        transition: 'opacity var(--t-enter) var(--ease)',
+                      }}
+                    />
+                    {parentsReady ? (
+                      <HereditySamples key={`${dadImage?.previewUrl.length}-${momImage?.previewUrl.length}`} />
+                    ) : (
+                      <ExampleTag />
+                    )}
                   </div>
                   <Segmented<ChildGender>
                     label={t.childLabel}
@@ -483,8 +501,12 @@ const App: React.FC = () => {
                     ]}
                   />
                   <div className="flex flex-col gap-2 px-2">
-                    <h2 className="font-serif text-lead text-text">{t.readyTitle}</h2>
-                    <p className="text-small text-muted">{t.readyBody}</p>
+                    <h2 className="font-serif text-lead text-text">
+                      {parentsReady ? t.readyFilledTitle : t.readyTitle}
+                    </h2>
+                    <p className="text-small text-muted">
+                      {parentsReady ? t.readyFilledBody : t.readyBody}
+                    </p>
                   </div>
                   <Button
                     size="lg"

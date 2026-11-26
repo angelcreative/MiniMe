@@ -92,6 +92,12 @@ export type Messages = {
   darkTheme: string;
   lightTheme: string;
   exampleTag: string;
+  readyFilledTitle: string;
+  readyFilledBody: string;
+  samplesReading: string;
+  samplesPairing: string;
+  samplesReady: string;
+  samplesHint: string;
 };
 
 export const MESSAGES: Record<Lang, Messages> = {
@@ -187,6 +193,12 @@ export const MESSAGES: Record<Lang, Messages> = {
     darkTheme: 'Switch to dark theme',
     lightTheme: 'Switch to light theme',
     exampleTag: 'Example',
+    readyFilledTitle: 'Ready when you are',
+    readyFilledBody: 'Choose girl or boy and we\'ll take you to a secure checkout.',
+    samplesReading: 'Reading facial traits',
+    samplesPairing: 'Pairing hereditary samples',
+    samplesReady: 'Hereditary samples ready',
+    samplesHint: 'Choose girl or boy below.',
   },
   es: {
     badge: 'Retrato familiar con IA',
@@ -280,6 +292,12 @@ export const MESSAGES: Record<Lang, Messages> = {
     darkTheme: 'Cambiar a tema oscuro',
     lightTheme: 'Cambiar a tema claro',
     exampleTag: 'Ejemplo',
+    readyFilledTitle: 'Todo listo',
+    readyFilledBody: 'Elige niña o niño y te llevaremos a un pago seguro.',
+    samplesReading: 'Leyendo rasgos faciales',
+    samplesPairing: 'Emparejando muestras hereditarias',
+    samplesReady: 'Muestras hereditarias listas',
+    samplesHint: 'Elige niña o niño abajo.',
   },
 };
 
