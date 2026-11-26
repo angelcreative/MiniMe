@@ -89,6 +89,8 @@ export type Messages = {
   creatorAccessBadge: string;
   paymentVerifiedBadge: string;
   priceNote: string;
+  darkTheme: string;
+  lightTheme: string;
 };
 
 export const MESSAGES: Record<Lang, Messages> = {
@@ -181,6 +183,8 @@ export const MESSAGES: Record<Lang, Messages> = {
     creatorAccessBadge: 'Creator access',
     paymentVerifiedBadge: 'Payment confirmed',
     priceNote: 'One-time payment',
+    darkTheme: 'Switch to dark theme',
+    lightTheme: 'Switch to light theme',
   },
   es: {
     badge: 'Retrato familiar con IA',
@@ -271,6 +275,8 @@ export const MESSAGES: Record<Lang, Messages> = {
     creatorAccessBadge: 'Acceso creador',
     paymentVerifiedBadge: 'Pago confirmado',
     priceNote: 'Pago único',
+    darkTheme: 'Cambiar a tema oscuro',
+    lightTheme: 'Cambiar a tema claro',
   },
 };
 

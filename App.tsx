@@ -23,6 +23,7 @@ import {
 import { DemoExample } from './components/DemoExample';
 import { GenerationWaitExperience } from './components/GenerationWaitExperience';
 import { LanguageSwitcher } from './components/LanguageSwitcher';
+import { ThemeToggle } from './components/ThemeToggle';
 import { useLanguage } from './i18n/LanguageContext';
 import { Segmented } from './components/Segmented';
 import { Spinner } from './components/Button';
@@ -343,7 +344,10 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-bg text-text">
       <header className="max-w-content mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
         <span className="font-serif text-lead text-text">MiniMe</span>
-        <LanguageSwitcher />
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <LanguageSwitcher />
+        </div>
       </header>
 
       <main className="max-w-content mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-16 flex flex-col gap-8 sm:gap-12 lg:gap-16">
