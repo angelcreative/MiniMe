@@ -6,23 +6,23 @@ import { tryConvertHeicToJpeg, validateParentPhoto } from '../services/imageForm
 import { useLanguage } from '../i18n/LanguageContext';
 import { Camera, UploadSimple, X } from '@phosphor-icons/react';
 import { Button } from './Button';
+import { ExampleTag } from './ExampleTag';
 
 interface ImageUploaderProps {
   label: string;
-  subLabel: string;
   image: UploadedImage | null;
   onImageUpload: (img: UploadedImage) => void;
   onRemove: () => void;
-  icon: React.ReactNode;
+  /** Example portrait shown faded until the viewer adds their own. */
+  placeholderSrc: string;
 }
 
 export const ImageUploader: React.FC<ImageUploaderProps> = ({ 
   label, 
-  subLabel, 
   image, 
   onImageUpload, 
   onRemove,
-  icon 
+  placeholderSrc,
 }) => {
   const { t } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -136,10 +136,16 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
             <button
               type="button"
               onClick={triggerFileUpload}
-              className="ctl absolute inset-0 w-full h-full flex flex-col items-center justify-center gap-2 p-4 text-muted text-center"
+              aria-label={`${t.upload} · ${label}`}
+              className="ctl absolute inset-0 w-full h-full"
             >
-              {icon}
-              <span className="hidden sm:block text-small max-w-[22ch]">{subLabel}</span>
+              <img
+                src={placeholderSrc}
+                alt=""
+                className="w-full h-full object-cover opacity-50"
+                loading="lazy"
+              />
+              <ExampleTag />
             </button>
           )}
         </div>

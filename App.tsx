@@ -20,7 +20,7 @@ import {
   saveDraftPaymentToken,
   storedToUploaded,
 } from './services/draftStorage';
-import { DemoExample } from './components/DemoExample';
+import { ExampleTag } from './components/ExampleTag';
 import { GenerationWaitExperience } from './components/GenerationWaitExperience';
 import { LanguageSwitcher } from './components/LanguageSwitcher';
 import { ThemeToggle } from './components/ThemeToggle';
@@ -30,10 +30,8 @@ import { Spinner } from './components/Button';
 import {
   ArrowCounterClockwise,
   ArrowRight,
-  Baby,
   DownloadSimple,
   ShareNetwork,
-  User,
   Warning,
 } from '@phosphor-icons/react';
 
@@ -338,8 +336,6 @@ const App: React.FC = () => {
           ? t.meetFutureSon
           : t.meetFutureDaughter;
 
-  const placeholderIcon = <User size={24} weight="duotone" aria-hidden />;
-
   return (
     <div className="min-h-screen bg-bg text-text">
       <header className="max-w-content mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
@@ -368,19 +364,17 @@ const App: React.FC = () => {
               <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
                 <ImageUploader
                   label={t.dadPhoto}
-                  subLabel={t.uploadPortrait}
                   image={dadImage}
                   onImageUpload={persistDad}
                   onRemove={() => persistDad(null)}
-                  icon={placeholderIcon}
+                  placeholderSrc="/demo/father.jpg"
                 />
                 <ImageUploader
                   label={t.momPhoto}
-                  subLabel={t.uploadPortrait}
                   image={momImage}
                   onImageUpload={persistMom}
                   onRemove={() => persistMom(null)}
-                  icon={placeholderIcon}
+                  placeholderSrc="/demo/mother.jpg"
                 />
               </div>
               <p className="text-small text-muted max-w-prose">{t.formatsHint}</p>
@@ -412,6 +406,9 @@ const App: React.FC = () => {
                 </Button>
               </div>
 
+              {genState.resultImage && !creatorMode && (
+                <p className="text-small text-muted">{t.newPortraitNote}</p>
+              )}
               {creatorMode && !genState.resultImage && (
                 <p className="text-small text-warning-text bg-warning-bg rounded-inner px-4 py-2">
                   {t.creatorBanner}
@@ -508,12 +505,19 @@ const App: React.FC = () => {
                 </div>
               ) : (
                 <div className="flex flex-col gap-4">
-                  <div className="hidden lg:flex aspect-square rounded-inner bg-subtle items-center justify-center text-muted">
-                    <Baby size={24} weight="duotone" aria-hidden />
+                  <div className="relative aspect-square rounded-inner overflow-hidden bg-subtle">
+                    <img
+                      key={gender}
+                      src={gender === 'girl' ? '/demo/child-girl.jpg' : '/demo/child-boy.jpg'}
+                      alt=""
+                      className="w-full h-full object-cover enter"
+                    />
+                    <ExampleTag />
                   </div>
                   <div className="flex flex-col gap-2 px-2 pb-2">
                     <h2 className="font-serif text-lead text-text">{t.readyTitle}</h2>
                     <p className="text-small text-muted">{t.readyBody}</p>
+                    <p className="text-small text-muted">{t.demoDisclaimer}</p>
                   </div>
                 </div>
               )}
@@ -521,7 +525,6 @@ const App: React.FC = () => {
           </aside>
         </div>
 
-        <DemoExample />
       </main>
     </div>
   );

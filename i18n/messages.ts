@@ -91,6 +91,8 @@ export type Messages = {
   priceNote: string;
   darkTheme: string;
   lightTheme: string;
+  exampleTag: string;
+  newPortraitNote: string;
 };
 
 export const MESSAGES: Record<Lang, Messages> = {
@@ -185,6 +187,8 @@ export const MESSAGES: Record<Lang, Messages> = {
     priceNote: 'One-time payment',
     darkTheme: 'Switch to dark theme',
     lightTheme: 'Switch to light theme',
+    exampleTag: 'Example',
+    newPortraitNote: 'Your portrait stays as it is. Generating another one is a new payment.',
   },
   es: {
     badge: 'Retrato familiar con IA',
@@ -277,6 +281,8 @@ export const MESSAGES: Record<Lang, Messages> = {
     priceNote: 'Pago único',
     darkTheme: 'Cambiar a tema oscuro',
     lightTheme: 'Cambiar a tema claro',
+    exampleTag: 'Ejemplo',
+    newPortraitNote: 'Tu retrato se queda como está. Generar otro es un pago nuevo.',
   },
 };
 
@@ -284,12 +290,6 @@ export function detectLang(): Lang {
   try {
     const saved = localStorage.getItem('minime_lang');
     if (saved === 'en' || saved === 'es') return saved;
-  } catch {
-    /* ignore */
-  }
-  try {
-    const nav = (navigator.language || '').toLowerCase();
-    if (nav.startsWith('es')) return 'es';
   } catch {
     /* ignore */
   }
