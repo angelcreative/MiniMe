@@ -1,7 +1,25 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
+import { Segmented } from './Segmented';
 
 type DemoTab = 'boy' | 'girl';
+
+const Tile: React.FC<{
+  src: string;
+  caption: string;
+  className?: string;
+  children?: React.ReactNode;
+}> = ({ src, caption, className = '', children }) => (
+  <figure className={`m-0 flex flex-col gap-2 p-4 rounded-container bg-surface shadow-sm ${className}`}>
+    <div className="aspect-square rounded-inner overflow-hidden bg-subtle">
+      <img src={src} alt={caption} className="w-full h-full object-cover" loading="lazy" />
+    </div>
+    <figcaption className="flex flex-wrap items-center justify-between gap-2 pt-2 min-h-control">
+      <span className="text-label font-medium text-text truncate">{caption}</span>
+      {children}
+    </figcaption>
+  </figure>
+);
 
 /**
  * Static marketing demo — example couple + predicted offspring (boy/girl tabs).
@@ -12,94 +30,36 @@ export const DemoExample: React.FC = () => {
   const { t } = useLanguage();
 
   return (
-    <section className="mt-16 md:mt-24 w-full max-w-7xl mx-auto px-1">
-      <div className="text-center space-y-3 mb-10">
-        <h2 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight">
+    <section className="flex flex-col gap-8" aria-labelledby="demo-title">
+      <div className="flex flex-col gap-2">
+        <h2 id="demo-title" className="font-serif text-heading text-text max-w-headline">
           {t.demoTitle}
         </h2>
-        <p className="text-slate-500 text-sm md:text-base max-w-2xl mx-auto leading-relaxed">
-          {t.demoSubtitle}
-        </p>
+        <p className="text-body text-muted max-w-prose">{t.demoSubtitle}</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 items-stretch">
-        <figure className="flex flex-col gap-3">
-          <div className="relative aspect-square rounded-3xl overflow-hidden bg-slate-100 shadow-sm border border-slate-100">
-            <img
-              src="/demo/father.jpg"
-              alt={t.demoFatherCaption}
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
-            <span className="absolute top-3 left-3 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-slate-600">
-              {t.demoFather}
-            </span>
-          </div>
-          <figcaption className="px-1">
-            <p className="text-sm font-bold text-slate-700">{t.demoFatherCaption}</p>
-          </figcaption>
-        </figure>
-
-        <figure className="flex flex-col gap-3">
-          <div className="relative aspect-square rounded-3xl overflow-hidden bg-slate-100 shadow-sm border border-slate-100">
-            <img
-              src="/demo/mother.jpg"
-              alt={t.demoMotherCaption}
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
-            <span className="absolute top-3 left-3 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-slate-600">
-              {t.demoMother}
-            </span>
-          </div>
-          <figcaption className="px-1">
-            <p className="text-sm font-bold text-slate-700">{t.demoMotherCaption}</p>
-          </figcaption>
-        </figure>
-
-        <div className="flex flex-col gap-3">
-          <div className="relative aspect-square rounded-3xl overflow-hidden bg-slate-100 shadow-md border border-indigo-100">
-            <img
-              src={tab === 'girl' ? '/demo/child-girl.jpg' : '/demo/child-boy.jpg'}
-              alt={t.demoPredicted}
-              className="w-full h-full object-cover transition-opacity duration-300"
-              loading="lazy"
-            />
-            <span className="absolute top-3 left-3 bg-indigo-500 text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm">
-              {t.demoPredicted}
-            </span>
-          </div>
-
-          <div className="flex p-1 bg-slate-100 rounded-full w-fit mx-auto md:mx-0">
-            <button
-              type="button"
-              onClick={() => setTab('boy')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold transition-all ${
-                tab === 'boy'
-                  ? 'bg-white text-sky-500 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-600'
-              }`}
-            >
-              <span>👦</span> {t.boy}
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab('girl')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold transition-all ${
-                tab === 'girl'
-                  ? 'bg-white text-pink-500 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-600'
-              }`}
-            >
-              <span>👧</span> {t.girl}
-            </button>
-          </div>
-        </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
+        <Tile src="/demo/father.jpg" caption={t.demoFather} />
+        <Tile src="/demo/mother.jpg" caption={t.demoMother} />
+        <Tile
+          src={tab === 'girl' ? '/demo/child-girl.jpg' : '/demo/child-boy.jpg'}
+          caption={t.demoPredicted}
+          className="col-span-2 sm:col-span-1"
+        >
+          <Segmented<DemoTab>
+            size="sm"
+            label={t.selectGender}
+            value={tab}
+            onChange={setTab}
+            options={[
+              { id: 'girl', label: t.girl },
+              { id: 'boy', label: t.boy },
+            ]}
+          />
+        </Tile>
       </div>
 
-      <p className="text-center text-[11px] text-slate-400 mt-8 max-w-lg mx-auto">
-        {t.demoDisclaimer}
-      </p>
+      <p className="text-small text-muted max-w-prose">{t.demoDisclaimer}</p>
     </section>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ImageUploader } from './components/ImageUploader';
 import { Button } from './components/Button';
 import { PaymentCheckout } from './components/PaymentCheckout';
@@ -24,6 +24,17 @@ import { DemoExample } from './components/DemoExample';
 import { GenerationWaitExperience } from './components/GenerationWaitExperience';
 import { LanguageSwitcher } from './components/LanguageSwitcher';
 import { useLanguage } from './i18n/LanguageContext';
+import { Segmented } from './components/Segmented';
+import { Spinner } from './components/Button';
+import {
+  ArrowCounterClockwise,
+  ArrowRight,
+  Baby,
+  DownloadSimple,
+  ShareNetwork,
+  User,
+  Warning,
+} from '@phosphor-icons/react';
 
 const CREATOR_ACCESS_KEY = 'minime_creator_access';
 
@@ -84,6 +95,15 @@ const App: React.FC = () => {
     resultImage: null,
     error: null,
   });
+  const panelRef = useRef<HTMLElement>(null);
+
+  // On narrow screens the panel sits below the form: bring checkout, progress
+  // and the result into view when they appear.
+  useEffect(() => {
+    if (!checkoutOpen && !genState.resultImage) return;
+    if (window.matchMedia('(min-width: 1024px)').matches) return;
+    panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [checkoutOpen, genState.resultImage]);
 
   const persistDad = (img: UploadedImage | null) => {
     setDadImage(img);
@@ -157,7 +177,7 @@ const App: React.FC = () => {
       setGenState({ isLoading: false, resultImage: resultBase64, error: null });
       setCheckoutOpen(false);
     } catch (err: any) {
-      const msg = String(err?.message || 'Failed to generate image. Please try again.');
+      const msg = String(err?.message || "We couldn't create the portrait. Try again in a moment.");
       setGenState({
         isLoading: false,
         resultImage: null,
@@ -303,205 +323,155 @@ const App: React.FC = () => {
     }
   };
 
-  const DadIcon = (
-    <span className="text-7xl filter drop-shadow-sm grayscale-0" role="img" aria-label={t.dadPhoto}>
-      👨
-    </span>
-  );
-
-  const MomIcon = (
-    <span className="text-7xl filter drop-shadow-sm grayscale-0" role="img" aria-label={t.momPhoto}>
-      👩
-    </span>
-  );
-
   const paidReady = Boolean(paymentToken);
   const creatorMode = Boolean(creatorAccess);
+  const showFlow = checkoutOpen || (creatorMode && genState.isLoading);
+
+  const ctaLabel = genState.isLoading
+    ? t.creatingMagic
+    : creatorMode
+      ? t.generateCreator
+      : paidReady
+        ? t.generatePaid
+        : gender === 'boy'
+          ? t.meetFutureSon
+          : t.meetFutureDaughter;
+
+  const placeholderIcon = <User size={24} weight="duotone" aria-hidden />;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 md:p-8 selection:bg-indigo-100">
-      <div className="w-full max-w-7xl mx-auto">
-        <div className="flex justify-end mb-4">
-          <LanguageSwitcher />
-        </div>
+    <div className="min-h-screen bg-bg text-text">
+      <header className="max-w-content mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+        <span className="font-serif text-lead text-text">MiniMe</span>
+        <LanguageSwitcher />
+      </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
-          <div className="lg:col-span-7 flex flex-col gap-8">
-            <header className="text-center lg:text-left space-y-2">
-              <div className="inline-block px-4 py-1.5 bg-white rounded-full shadow-sm mb-2 border border-slate-100">
-                <span className="text-xs font-bold uppercase tracking-widest text-indigo-500">
-                  {t.badge}
-                </span>
-              </div>
-              <h1 className="text-4xl md:text-5xl font-bold text-slate-800 tracking-tight">
-                MiniMe <span className="text-indigo-500">AI</span>
+      <main className="max-w-content mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-16 flex flex-col gap-8 sm:gap-12 lg:gap-16">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8 items-start">
+          <section className="lg:col-span-7 flex flex-col gap-8" aria-labelledby="hero-title">
+            <div className="flex flex-col gap-2">
+              <p className="text-label font-medium text-muted">{t.badge}</p>
+              <h1
+                id="hero-title"
+                className="font-serif text-heading sm:text-title text-text max-w-headline"
+              >
+                {t.heroTitle}
               </h1>
-              <p className="text-slate-500 font-medium text-sm md:text-base max-w-lg mx-auto lg:mx-0">
-                {t.tagline}
-              </p>
-            </header>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <ImageUploader
-                label={t.dadPhoto}
-                subLabel={t.uploadPortrait}
-                image={dadImage}
-                onImageUpload={persistDad}
-                onRemove={() => persistDad(null)}
-                icon={DadIcon}
-              />
-              <ImageUploader
-                label={t.momPhoto}
-                subLabel={t.uploadPortrait}
-                image={momImage}
-                onImageUpload={persistMom}
-                onRemove={() => persistMom(null)}
-                icon={MomIcon}
-              />
+              <p className="text-body text-muted max-w-prose">{t.tagline}</p>
             </div>
 
-            <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100 space-y-6">
-              <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                <div className="flex flex-col items-center md:items-start gap-2">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                    {t.selectGender}
-                  </span>
-                  <div className="flex p-1 bg-slate-100 rounded-full">
-                    <button
-                      onClick={() => persistGender('boy')}
-                      className={`
-                          flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-bold transition-all duration-300
-                          ${
-                            gender === 'boy'
-                              ? 'bg-white text-sky-500 shadow-sm'
-                              : 'text-slate-400 hover:text-slate-600'
-                          }
-                        `}
-                    >
-                      <span className="text-lg">👦</span> {t.boy}
-                    </button>
-                    <button
-                      onClick={() => persistGender('girl')}
-                      className={`
-                          flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-bold transition-all duration-300
-                          ${
-                            gender === 'girl'
-                              ? 'bg-white text-pink-500 shadow-sm'
-                              : 'text-slate-400 hover:text-slate-600'
-                          }
-                        `}
-                    >
-                      <span className="text-lg">👧</span> {t.girl}
-                    </button>
-                  </div>
-                </div>
+            <div className="flex flex-col gap-4">
+              <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
+                <ImageUploader
+                  label={t.dadPhoto}
+                  subLabel={t.uploadPortrait}
+                  image={dadImage}
+                  onImageUpload={persistDad}
+                  onRemove={() => persistDad(null)}
+                  icon={placeholderIcon}
+                />
+                <ImageUploader
+                  label={t.momPhoto}
+                  subLabel={t.uploadPortrait}
+                  image={momImage}
+                  onImageUpload={persistMom}
+                  onRemove={() => persistMom(null)}
+                  icon={placeholderIcon}
+                />
+              </div>
+              <p className="text-small text-muted max-w-prose">{t.formatsHint}</p>
+            </div>
 
-                <div className="w-full md:w-auto">
-                  <Button
-                    onClick={handleGenerateClick}
-                    isLoading={
-                      genState.isLoading && !(checkoutOpen && !creatorMode)
-                    }
-                    disabled={
-                      !dadImage || !momImage || checkoutOpen || genState.isLoading
-                    }
-                    className="w-full md:min-w-[220px]"
-                  >
-                    {genState.isLoading
-                      ? t.creatingMagic
-                      : creatorMode
-                        ? t.generateCreator
-                        : paidReady
-                          ? t.generatePaid
-                          : gender === 'boy'
-                            ? t.meetFutureSon
-                            : t.meetFutureDaughter}
-                  </Button>
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-container bg-surface shadow-sm">
+                <div className="flex items-center gap-4">
+                  <span className="text-label font-medium text-muted">{t.childLabel}</span>
+                  <Segmented<ChildGender>
+                    label={t.childLabel}
+                    value={gender}
+                    onChange={persistGender}
+                    options={[
+                      { id: 'girl', label: t.girl },
+                      { id: 'boy', label: t.boy },
+                    ]}
+                  />
                 </div>
+                <Button
+                  size="lg"
+                  onClick={handleGenerateClick}
+                  isLoading={genState.isLoading && !(checkoutOpen && !creatorMode)}
+                  disabled={!dadImage || !momImage || checkoutOpen || genState.isLoading}
+                  className="w-full sm:w-auto"
+                >
+                  {ctaLabel}
+                  {!genState.isLoading && <ArrowRight size={16} weight="bold" aria-hidden />}
+                </Button>
               </div>
 
               {creatorMode && !genState.resultImage && (
-                <p className="text-center text-amber-700 text-sm font-medium bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">
+                <p className="text-small text-warning-text bg-warning-bg rounded-inner px-4 py-2">
                   {t.creatorBanner}
                 </p>
               )}
-
               {paidReady && !creatorMode && !genState.resultImage && (
-                <p className="text-center text-emerald-600 text-sm font-medium bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-100">
+                <p className="text-small text-success-text bg-success-bg rounded-inner px-4 py-2">
                   {t.paidBanner}
                 </p>
               )}
-
               {genState.error && (
-                <p className="text-center text-rose-400 text-sm font-medium bg-rose-50 px-4 py-2 rounded-lg border border-rose-100">
+                <p
+                  role="alert"
+                  className="flex items-start gap-2 text-small text-error-text bg-error-bg rounded-inner px-4 py-2"
+                >
+                  <Warning size={20} weight="duotone" className="shrink-0" aria-hidden />
                   {genState.error}
                 </p>
               )}
             </div>
-          </div>
+          </section>
 
-          <div className="lg:col-span-5 lg:sticky lg:top-8">
-            <div
-              className={`
-              relative w-full rounded-[2.5rem] overflow-hidden transition-all duration-500
-              ${
-                genState.resultImage
-                  ? 'bg-white shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)]'
-                  : 'bg-white/50 border-2 border-dashed border-indigo-100 min-h-[220px] sm:min-h-[280px] lg:min-h-[600px] flex flex-col items-center justify-center p-6 md:p-8'
-              }
-            `}
-            >
+          <aside ref={panelRef} className="lg:col-span-5 lg:sticky lg:top-8 scroll-mt-4">
+            <div className="p-4 rounded-container bg-surface shadow-sm">
               {genState.resultImage ? (
-                <div className="flex flex-col h-full animate-fade-in">
-                  <div className="relative w-full aspect-[4/5] bg-slate-100">
+                <div className="flex flex-col gap-4 enter">
+                  <div className="relative aspect-square rounded-inner overflow-hidden bg-subtle">
                     <img
                       src={genState.resultImage}
-                      alt={`Generated ${gender}`}
+                      alt={t.resultTitle}
                       className="w-full h-full object-cover"
                     />
-                    <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-md px-4 py-1.5 rounded-full shadow-sm">
-                      <span className="text-xs font-bold text-slate-600">{t.aiGenerated}</span>
-                    </div>
+                    <span className="absolute top-2 left-2 rounded-full bg-surface text-text text-label font-medium px-2 shadow-sm">
+                      {t.aiGenerated}
+                    </span>
                   </div>
-
-                  <div className="p-6 md:p-8 space-y-6 bg-white">
-                    <div className="text-center">
-                      <h2 className="text-2xl font-bold text-slate-800 mb-1">{t.resultTitle}</h2>
-                      <p className="text-slate-500 text-sm">{t.resultSubtitle}</p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <button
-                        onClick={handleDownload}
-                        className="flex items-center justify-center gap-2 px-4 py-3 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold rounded-xl border border-slate-200 transition-colors"
-                      >
-                        {t.download}
-                      </button>
-                      <button
-                        onClick={handleShare}
-                        className="flex items-center justify-center gap-2 px-4 py-3 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all"
-                      >
-                        {t.share}
-                      </button>
-                    </div>
-
-                    <button
-                      onClick={() => window.location.reload()}
-                      className="w-full text-indigo-400 hover:text-indigo-600 text-xs font-bold uppercase tracking-wider py-2 transition-colors"
-                    >
-                      {t.startOver}
-                    </button>
+                  <div className="flex flex-col gap-2 px-2">
+                    <h2 className="font-serif text-heading text-text">{t.resultTitle}</h2>
+                    <p className="text-small text-muted">{t.resultSubtitle}</p>
                   </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button variant="secondary" size="lg" onClick={handleDownload}>
+                      <DownloadSimple size={16} weight="duotone" aria-hidden />
+                      {t.download}
+                    </Button>
+                    <Button size="lg" onClick={handleShare}>
+                      <ShareNetwork size={16} weight="duotone" aria-hidden />
+                      {t.share}
+                    </Button>
+                  </div>
+                  <Button variant="ghost" onClick={() => window.location.reload()}>
+                    <ArrowCounterClockwise size={16} aria-hidden />
+                    {t.startOver}
+                  </Button>
                 </div>
-              ) : checkoutOpen || (creatorMode && genState.isLoading) ? (
-                <div className="w-full h-full flex flex-col items-center justify-center py-6">
+              ) : showFlow ? (
+                <div className="p-2">
                   {verifying ? (
-                    <div className="text-center space-y-4 max-w-[350px]">
-                      <div className="relative w-20 h-20 mx-auto">
-                        <div className="absolute inset-0 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
+                    <div className="flex flex-col gap-2 enter" role="status">
+                      <div className="flex items-center gap-2 text-text">
+                        <Spinner />
+                        <h2 className="font-serif text-lead">{t.verifyingTitle}</h2>
                       </div>
-                      <h3 className="text-lg font-extrabold text-slate-800">{t.verifyingTitle}</h3>
-                      <p className="text-slate-400 text-xs">{t.verifyingBody}</p>
+                      <p className="text-small text-muted">{t.verifyingBody}</p>
                     </div>
                   ) : (paymentToken || creatorMode) && genState.isLoading ? (
                     <GenerationWaitExperience
@@ -509,14 +479,9 @@ const App: React.FC = () => {
                       gender={gender}
                     />
                   ) : creatorMode ? (
-                    <div className="text-center space-y-6 max-w-xs">
-                      <div className="relative mx-auto w-32 h-32 bg-amber-50 rounded-full flex items-center justify-center">
-                        <span className="text-5xl opacity-50">✨</span>
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-bold text-slate-700 mb-2">{t.creatorModeTitle}</h3>
-                        <p className="text-slate-400 text-sm leading-relaxed">{t.creatorModeBody}</p>
-                      </div>
+                    <div className="flex flex-col gap-2">
+                      <h2 className="font-serif text-heading text-text">{t.creatorModeTitle}</h2>
+                      <p className="text-small text-muted">{t.creatorModeBody}</p>
                     </div>
                   ) : (
                     <PaymentCheckout
@@ -538,32 +503,22 @@ const App: React.FC = () => {
                   )}
                 </div>
               ) : (
-                <div className="text-center space-y-6 max-w-xs">
-                  <div className="relative mx-auto w-32 h-32 bg-indigo-50 rounded-full flex items-center justify-center">
-                    <span className="text-5xl opacity-50">👶</span>
+                <div className="flex flex-col gap-4">
+                  <div className="hidden lg:flex aspect-square rounded-inner bg-subtle items-center justify-center text-muted">
+                    <Baby size={24} weight="duotone" aria-hidden />
                   </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-slate-700 mb-2">{t.readyTitle}</h3>
-                    <p className="text-slate-400 text-sm leading-relaxed">{t.readyBody}</p>
+                  <div className="flex flex-col gap-2 px-2 pb-2">
+                    <h2 className="font-serif text-lead text-text">{t.readyTitle}</h2>
+                    <p className="text-small text-muted">{t.readyBody}</p>
                   </div>
                 </div>
               )}
             </div>
-          </div>
+          </aside>
         </div>
 
         <DemoExample />
-      </div>
-
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in {
-          animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-      `}</style>
+      </main>
     </div>
   );
 };

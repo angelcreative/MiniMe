@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
     "express": "^5.1.0",
     "express-rate-limit": "^7.5.1",
     "openai": "^4.104.0",

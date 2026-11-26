@@ -5,6 +5,9 @@ import {
   verifyCheckoutSession,
 } from '../services/apiService';
 import { useLanguage } from '../i18n/LanguageContext';
+import { LockSimple } from '@phosphor-icons/react';
+import { Button, Spinner } from './Button';
+import { Segmented } from './Segmented';
 
 interface Props {
   currency: CheckoutCurrency;
@@ -90,102 +93,74 @@ export const PaymentCheckout: React.FC<Props> = ({
   const { amount, symbol } = DISPLAY[currency];
 
   return (
-    <div className="relative z-10 w-full max-w-[350px] bg-white/95 backdrop-blur-xl p-5 md:p-6 rounded-3xl border border-slate-100 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.12)] space-y-4 mx-auto animate-fade-in">
-      <div className="text-center space-y-0.5">
-        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-bold uppercase tracking-wider mb-1">
+    <div className="w-full flex flex-col gap-4 enter">
+      <div className="flex flex-col gap-2">
+        <p className="inline-flex items-center gap-2 text-label font-medium text-muted">
+          <LockSimple size={16} weight="duotone" />
           {t.checkoutBadge}
-        </div>
-        <h3 className="text-xl font-bold text-slate-800 tracking-tight">{t.checkoutTitle}</h3>
-        <p className="text-slate-500 text-[11px] font-medium max-w-xs mx-auto">
-          {t.checkoutSubtitle}
         </p>
+        <h2 className="font-serif text-heading text-text">{t.checkoutTitle}</h2>
+        <p className="text-small text-muted max-w-prose">{t.checkoutSubtitle}</p>
       </div>
 
-      <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-        <div>
-          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">
-            {t.checkoutFee}
-          </span>
-          <span className="text-xl font-extrabold text-slate-800 tracking-tight">
+      <div className="flex items-center justify-between gap-4 rounded-inner bg-bg p-4">
+        <div className="flex flex-col">
+          <span className="text-small text-muted">{t.checkoutFee}</span>
+          <span className="font-serif text-heading text-text tabular-nums">
             {symbol}
             {amount}
           </span>
         </div>
-        <div className="flex bg-white rounded-lg p-0.5 shadow-sm border border-slate-100">
-          <button
-            type="button"
-            onClick={() => onCurrencyChange('EUR')}
-            className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all ${
-              currency === 'EUR'
-                ? 'bg-indigo-500 text-white shadow-sm'
-                : 'text-slate-400 hover:text-slate-600'
-            }`}
-          >
-            EUR (€)
-          </button>
-          <button
-            type="button"
-            onClick={() => onCurrencyChange('USD')}
-            className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all ${
-              currency === 'USD'
-                ? 'bg-indigo-500 text-white shadow-sm'
-                : 'text-slate-400 hover:text-slate-600'
-            }`}
-          >
-            USD ($)
-          </button>
-        </div>
+        <Segmented<CheckoutCurrency>
+          size="sm"
+          label="Currency"
+          value={currency}
+          onChange={onCurrencyChange}
+          options={[
+            { id: 'EUR', label: 'EUR' },
+            { id: 'USD', label: 'USD' },
+          ]}
+        />
       </div>
 
       {awaiting ? (
-        <div className="text-center py-6 space-y-4">
-          <div className="relative w-12 h-12 mx-auto">
-            <div className="absolute inset-0 border-4 border-indigo-100 rounded-full" />
-            <div className="absolute inset-0 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        <div className="flex flex-col gap-4 items-start" role="status">
+          <div className="flex items-center gap-2 text-text">
+            <Spinner />
+            <span className="text-label font-medium">{t.awaitingPayment}</span>
           </div>
-          <div className="space-y-1">
-            <h4 className="text-sm font-bold text-slate-800">{t.awaitingPayment}</h4>
-            <p className="text-[11px] text-slate-500 leading-relaxed max-w-[240px] mx-auto">
-              {t.awaitingBody}
-            </p>
-          </div>
-          <div className="pt-2 flex flex-col gap-1.5 items-center justify-center">
-            <button
-              type="button"
+          <p className="text-small text-muted">{t.awaitingBody}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
               onClick={async () => {
                 if (onBeforeRedirect) await onBeforeRedirect();
                 if (checkoutUrl) window.open(checkoutUrl, '_blank');
               }}
-              className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg"
             >
               {t.reopenStripe}
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="ghost"
               onClick={() => {
                 if (pollRef.current) clearInterval(pollRef.current);
                 setAwaiting(false);
               }}
-              className="text-[10px] font-medium text-slate-400 hover:text-slate-600"
             >
               {t.cancel}
-            </button>
+            </Button>
           </div>
         </div>
       ) : (
-        <div className="space-y-4">
-          <button
-            type="button"
-            onClick={handlePay}
-            disabled={loading}
-            className="w-full bg-gradient-to-r from-indigo-600 via-indigo-500 to-indigo-600 text-white font-bold py-3.5 px-4 rounded-xl shadow-md hover:brightness-105 active:scale-[0.98] flex items-center justify-center gap-2 text-xs transition-all disabled:opacity-60"
-          >
+        <div className="flex flex-col gap-2">
+          <Button size="lg" onClick={handlePay} isLoading={loading} className="w-full">
             {loading ? t.redirecting : t.payCta}
-          </button>
+          </Button>
+          <p className="text-small text-muted text-center">{t.payMethods}</p>
           {error && (
-            <div className="text-rose-500 bg-rose-50 border border-rose-100 p-2.5 rounded-lg text-[11px] font-semibold">
+            <p role="alert" className="text-small text-error-text bg-error-bg rounded-inner px-4 py-2">
               {error}
-            </div>
+            </p>
           )}
         </div>
       )}

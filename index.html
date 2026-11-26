@@ -3,18 +3,186 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MiniMe AI</title>
-    <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%236366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 16c.5.3 1.2.5 2 .5s1.5-.2 2-.5"/><path d="M15 12h.01"/><path d="M19.38 6.813A9 9 0 0 1 20.8 10.2a2 2 0 0 1 0 3.6 9 9 0 0 1-17.6 0 2 2 0 0 1 0-3.6A9 9 0 0 1 12 3c2 0 3.5 1.1 3.5 2.5s-.9 2.5-2 2.5c-.8 0-1.5-.4-1.5-1"/><path d="M9 12h.01"/></svg>' />
+    <title>MiniMe</title>
+    <meta name="theme-color" content="#F6FBFE" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#000509" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="16" fill="%232F3E46"/><circle cx="16" cy="16" r="6" fill="%23D97757"/></svg>' />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=Source+Sans+3:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      /* Kinetic Lineage tokens — every value below comes from the design file. */
+      tailwind.config = {
+        theme: {
+          screens: { sm: '640px', lg: '1024px' },
+          colors: {
+            transparent: 'transparent',
+            current: 'currentColor',
+            bg: 'var(--bg)',
+            surface: 'var(--surface)',
+            subtle: 'var(--subtle)',
+            border: 'var(--border)',
+            'control-border': 'var(--control-border)',
+            text: 'var(--text)',
+            muted: 'var(--muted)',
+            primary: 'var(--primary)',
+            'on-primary': 'var(--on-primary)',
+            accent: 'var(--accent)',
+            'success-bg': 'var(--success-bg)',
+            'success-text': 'var(--success-text)',
+            'warning-bg': 'var(--warning-bg)',
+            'warning-text': 'var(--warning-text)',
+            'error-bg': 'var(--error-bg)',
+            'error-text': 'var(--error-text)',
+          },
+          fontFamily: {
+            serif: ['"Playfair Display"', 'Georgia', 'serif'],
+            sans: ['"Source Sans 3"', 'system-ui', 'sans-serif'],
+          },
+          fontSize: {
+            display: ['4.5625rem', { lineHeight: '1.1' }],
+            title: ['3.25rem', { lineHeight: '1.15' }],
+            heading: ['2.3125rem', { lineHeight: '1.2' }],
+            lead: ['1.6875rem', { lineHeight: '1.4' }],
+            body: ['1.1875rem', { lineHeight: '1.5' }],
+            small: ['0.875rem', { lineHeight: '1.5' }],
+            label: ['0.875rem', { lineHeight: '1.4' }],
+          },
+          borderRadius: {
+            none: '0',
+            container: '32px',
+            inner: '16px',
+            control: '16px',
+            full: '9999px',
+          },
+          boxShadow: {
+            none: 'none',
+            sm: 'var(--shadow-sm)',
+            md: 'var(--shadow-md)',
+            lg: 'var(--shadow-lg)',
+          },
+          zIndex: {
+            base: '0',
+            raised: '10',
+            sticky: '100',
+            dropdown: '200',
+            overlay: '300',
+            modal: '400',
+            toast: '500',
+            tooltip: '600',
+          },
+          extend: {
+            spacing: { control: '32px', 'control-sm': '24px', 'control-lg': '40px' },
+            maxWidth: { content: '1200px', prose: '80ch', headline: '60ch' },
+          },
+        },
+      };
+    </script>
     <style>
+      :root {
+        color-scheme: light;
+        --bg: #F6FBFE;
+        --surface: #FFFFFF;
+        --subtle: #D4DCE0;
+        --border: #B2BDC4;
+        --control-border: #73838C;
+        --text: #0C161B;
+        --muted: #46545B;
+        --primary: #2F3E46;
+        --on-primary: #FFFFFF;
+        --accent: #2F3E46;
+        --success-bg: #CAEACA;
+        --success-text: #0A5817;
+        --warning-bg: #F5DAC0;
+        --warning-text: #6C3B00;
+        --error-bg: #FFD2CE;
+        --error-text: #7C2625;
+        --scrim: rgba(12, 22, 27, 0.4);
+        --hover-brightness: 1.07;
+        --shadow-sm: 0 1px 2px rgba(12, 22, 27, 0.06), 0 2px 6px rgba(12, 22, 27, 0.06);
+        --shadow-md: 0 2px 4px rgba(12, 22, 27, 0.05), 0 6px 16px rgba(12, 22, 27, 0.09);
+        --shadow-lg: 0 4px 12px rgba(12, 22, 27, 0.06), 0 18px 44px rgba(12, 22, 27, 0.13);
+        --ease: cubic-bezier(0.4, 0, 1, 1);
+        --t-state: 120ms;
+        --t-enter: 220ms;
+        --t-exit: 160ms;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          color-scheme: dark;
+          --bg: #000509;
+          --surface: #0A161C;
+          --subtle: #1C2931;
+          --border: #2F3E47;
+          --control-border: #596C76;
+          --text: #F5FBFF;
+          --muted: #90A1AA;
+          --primary: #9AA5AA;
+          --on-primary: #010509;
+          --accent: #9AA5AA;
+          --success-bg: #002200;
+          --success-text: #AAD2AA;
+          --warning-bg: #300A00;
+          --warning-text: #E0BF9D;
+          --error-bg: #3A0000;
+          --error-text: #EFB4AF;
+          --scrim: rgba(0, 0, 0, 0.6);
+          --hover-brightness: 1.15;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        :root { --t-state: 0ms; --t-enter: 0ms; --t-exit: 0ms; }
+        *, *::before, *::after { animation-duration: 0ms !important; }
+      }
+
+      html { -webkit-text-size-adjust: 100%; }
       body {
-        font-family: 'Quicksand', sans-serif;
-        background-color: #f0fdfa; /* Fallback pastel color */
-        color: #334155;
+        margin: 0;
+        font-family: 'Source Sans 3', system-ui, sans-serif;
+        font-size: 1.1875rem;
+        line-height: 1.5;
+        background: var(--bg);
+        color: var(--text);
+        -webkit-font-smoothing: antialiased;
+      }
+      ::selection { background: var(--subtle); color: var(--text); }
+
+      /* Interaction states, shared by every control. */
+      .ctl {
+        transition: filter var(--t-state) var(--ease), transform var(--t-state) var(--ease),
+          background-color var(--t-state) var(--ease), color var(--t-state) var(--ease),
+          box-shadow var(--t-state) var(--ease);
+      }
+      .ctl:not(:disabled):hover { filter: brightness(var(--hover-brightness)); }
+      .ctl:not(:disabled):active { transform: translateY(1px); }
+      .ctl:disabled { cursor: not-allowed; }
+      :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+      :focus:not(:focus-visible) { outline: none; }
+
+      /* 44px touch target around 32px controls on touch screens. */
+      @media (pointer: coarse) {
+        .touch { position: relative; }
+        .touch::after { content: ''; position: absolute; inset: -6px; }
+      }
+
+      .enter { animation: enter var(--t-enter) var(--ease) both; }
+      @keyframes enter {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: none; }
+      }
+      .spin { animation: spin 900ms linear infinite; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .progress-indeterminate { animation: slide 1600ms var(--ease) infinite; }
+      @keyframes slide {
+        from { transform: translateX(-100%); }
+        to { transform: translateX(300%); }
       }
     </style>
-</head>
+  </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
