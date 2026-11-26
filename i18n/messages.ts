@@ -92,7 +92,6 @@ export type Messages = {
   darkTheme: string;
   lightTheme: string;
   exampleTag: string;
-  newPortraitNote: string;
 };
 
 export const MESSAGES: Record<Lang, Messages> = {
@@ -188,7 +187,6 @@ export const MESSAGES: Record<Lang, Messages> = {
     darkTheme: 'Switch to dark theme',
     lightTheme: 'Switch to light theme',
     exampleTag: 'Example',
-    newPortraitNote: 'Your portrait stays as it is. Generating another one is a new payment.',
   },
   es: {
     badge: 'Retrato familiar con IA',
@@ -282,7 +280,6 @@ export const MESSAGES: Record<Lang, Messages> = {
     darkTheme: 'Cambiar a tema oscuro',
     lightTheme: 'Cambiar a tema claro',
     exampleTag: 'Ejemplo',
-    newPortraitNote: 'Tu retrato se queda como está. Generar otro es un pago nuevo.',
   },
 };
 

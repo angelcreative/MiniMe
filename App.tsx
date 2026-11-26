@@ -30,6 +30,7 @@ import { Spinner } from './components/Button';
 import {
   ArrowCounterClockwise,
   ArrowRight,
+  Baby,
   DownloadSimple,
   ShareNetwork,
   Warning,
@@ -339,7 +340,10 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-bg text-text">
       <header className="max-w-content mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-        <span className="font-serif text-lead text-text">MiniMe</span>
+        <span className="inline-flex items-center gap-2 font-serif text-lead text-text">
+          <Baby size={24} weight="duotone" aria-hidden />
+          MiniMe
+        </span>
         <div className="flex items-center gap-2">
           <ThemeToggle />
           <LanguageSwitcher />
@@ -380,58 +384,12 @@ const App: React.FC = () => {
               <p className="text-small text-muted max-w-prose">{t.formatsHint}</p>
             </div>
 
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-container bg-surface shadow-sm">
-                <div className="flex items-center gap-4">
-                  <span className="text-label font-medium text-muted">{t.childLabel}</span>
-                  <Segmented<ChildGender>
-                    label={t.childLabel}
-                    value={gender}
-                    onChange={persistGender}
-                    options={[
-                      { id: 'girl', label: t.girl },
-                      { id: 'boy', label: t.boy },
-                    ]}
-                  />
-                </div>
-                <Button
-                  size="lg"
-                  onClick={handleGenerateClick}
-                  isLoading={genState.isLoading && !(checkoutOpen && !creatorMode)}
-                  disabled={!dadImage || !momImage || checkoutOpen || genState.isLoading}
-                  className="w-full sm:w-auto"
-                >
-                  {ctaLabel}
-                  {!genState.isLoading && <ArrowRight size={16} weight="bold" aria-hidden />}
-                </Button>
-              </div>
-
-              {genState.resultImage && !creatorMode && (
-                <p className="text-small text-muted">{t.newPortraitNote}</p>
-              )}
-              {creatorMode && !genState.resultImage && (
-                <p className="text-small text-warning-text bg-warning-bg rounded-inner px-4 py-2">
-                  {t.creatorBanner}
-                </p>
-              )}
-              {paidReady && !creatorMode && !genState.resultImage && (
-                <p className="text-small text-success-text bg-success-bg rounded-inner px-4 py-2">
-                  {t.paidBanner}
-                </p>
-              )}
-              {genState.error && (
-                <p
-                  role="alert"
-                  className="flex items-start gap-2 text-small text-error-text bg-error-bg rounded-inner px-4 py-2"
-                >
-                  <Warning size={20} weight="duotone" className="shrink-0" aria-hidden />
-                  {genState.error}
-                </p>
-              )}
-            </div>
           </section>
 
-          <aside ref={panelRef} className="lg:col-span-5 lg:sticky lg:top-8 scroll-mt-4">
+          <aside
+            ref={panelRef}
+            className="lg:col-span-5 lg:sticky lg:top-8 scroll-mt-4 flex flex-col gap-4"
+          >
             <div className="p-4 rounded-container bg-surface shadow-sm">
               {genState.resultImage ? (
                 <div className="flex flex-col gap-4 enter">
@@ -514,14 +472,53 @@ const App: React.FC = () => {
                     />
                     <ExampleTag />
                   </div>
-                  <div className="flex flex-col gap-2 px-2 pb-2">
+                  <Segmented<ChildGender>
+                    label={t.childLabel}
+                    value={gender}
+                    onChange={persistGender}
+                    className="w-full"
+                    options={[
+                      { id: 'girl', label: t.girl },
+                      { id: 'boy', label: t.boy },
+                    ]}
+                  />
+                  <div className="flex flex-col gap-2 px-2">
                     <h2 className="font-serif text-lead text-text">{t.readyTitle}</h2>
                     <p className="text-small text-muted">{t.readyBody}</p>
-                    <p className="text-small text-muted">{t.demoDisclaimer}</p>
                   </div>
+                  <Button
+                    size="lg"
+                    onClick={handleGenerateClick}
+                    isLoading={genState.isLoading && !(checkoutOpen && !creatorMode)}
+                    disabled={!dadImage || !momImage || checkoutOpen || genState.isLoading}
+                    className="w-full"
+                  >
+                    {ctaLabel}
+                    {!genState.isLoading && <ArrowRight size={16} weight="bold" aria-hidden />}
+                  </Button>
+                  <p className="text-small text-muted px-2 pb-2">{t.demoDisclaimer}</p>
                 </div>
               )}
             </div>
+            {creatorMode && !genState.resultImage && (
+              <p className="text-small text-warning-text bg-warning-bg rounded-inner px-4 py-2">
+                {t.creatorBanner}
+              </p>
+            )}
+            {paidReady && !creatorMode && !genState.resultImage && (
+              <p className="text-small text-success-text bg-success-bg rounded-inner px-4 py-2">
+                {t.paidBanner}
+              </p>
+            )}
+            {genState.error && (
+              <p
+                role="alert"
+                className="flex items-start gap-2 text-small text-error-text bg-error-bg rounded-inner px-4 py-2"
+              >
+                <Warning size={20} weight="duotone" className="shrink-0" aria-hidden />
+                {genState.error}
+              </p>
+            )}
           </aside>
         </div>
 
